@@ -631,7 +631,9 @@ const monos=p=>p.type==='combo'?`<div class="monos">${p.items.map(i=>monoOf(prod
 const pname=p=>p.type==='combo'?`${p.name} (${p.items.map(i=>prod(i).name).join(' + ')})`:p.name;
 function status(end){const d=daysLeft(end);if(d<0)return['bad','Vencida'];if(d<=S.settings.warnDays)return['warn',d===0?'Vence hoy':d===1?'Vence mañana':`Vence en ${d} d`];return['good','Activa']}
 function cuando(end){const d=daysLeft(end);if(d<0)return`venció hace ${-d} día${d===-1?'':'s'}`;if(d===0)return'vence hoy';if(d===1)return'vence mañana';return`vence en ${d} días`}
-function remindMsg(s){const p=prod(s.productId),c=client(s.clientId);return S.settings.template.replace(/\{nombre\}/g,c.name.split(' ')[0]).replace(/\{producto\}/g,pname(p)).replace(/\{cuando\}/g,cuando(s.end)).replace(/\{fecha\}/g,fdate(s.end)).replace(/\{precio\}/g,fmt(p.price))}
+function remindMsg(s){const p=prod(s.productId),c=client(s.clientId);return S.settings.template.replace(/\{nombre\}/g,c.name.split(' ')[0]).replace(/\{producto\}/g,pname(p)).replace(/\{cuando\}/g,cuando(s.end)).replace(/\{fecha\}/g,fdate(s.end)).replace(/\{precio\}/g,fmt(p.price)).replace(/\{pago\}/g,payText())}
+const payText=()=>(S.settings.payInfo||'').trim()||'Nequi';
+const payLine=()=>`Puedes pagar por *${payText()}*.`;
 function toast(msg){const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
 
 /* ---------- vista tienda ---------- */
@@ -946,7 +948,7 @@ function subTable(){
     <td>${esc(c.name)}<div class="m num">${c.phone?'+'+esc(c.phone):'Sin número'}</div></td>
     <td>${esc(p.name)}</td><td class="m">${esc(s.account||'—')}<div>${s.providerId?'Proveedor: '+esc(provName(s.providerId)):''}</div></td>
     <td class="num">${fdate(s.end)}</td><td><span class="chip ${k}">${l}</span>${s.notified?`<div class="m">Avisado ${fdate(s.notified)}</div>`:''}</td>
-    <td class="r"><div class="toolbar" style="justify-content:flex-end">${c.phone?`<a class="btn wa sm" target="_blank" rel="noopener" data-act="notify" data-id="${s.id}" href="${esc(waLink(c.phone,remindMsg(s)))}">${WA_SVG} Avisar</a>`:''}<button class="btn sm" data-act="renew" data-id="${s.id}">Renovar</button></div></td></tr>`}).join('')}
+    <td class="r"><div class="toolbar" style="justify-content:flex-end">${c.phone?`<a class="btn wa sm" target="_blank" rel="noopener" data-act="notify" data-id="${s.id}" href="${esc(waLink(c.phone,remindMsg(s)))}">${WA_SVG} Avisar</a>`:''}<button class="btn sm" data-act="renew" data-id="${s.id}">Renovar</button><button class="btn sm ghost" data-act="editsub" data-id="${s.id}">Editar</button></div></td></tr>`}).join('')}
   </tbody></table></div>`;
 }
 
@@ -1021,8 +1023,9 @@ function ajustes(){const s=S.settings;return`
     <div class="row2"><label for="stName">Nombre de la tienda<input type="text" id="stName" value="${esc(s.store)}"></label>
     <label for="stPhone">Tu WhatsApp (con 57 adelante)<input type="tel" id="stPhone" value="${esc(s.phone)}"></label></div>
     <label for="stWarn" style="max-width:260px">Avisar cuando falten (días)<input type="number" id="stWarn" min="1" max="30" value="${s.warnDays}"></label>
+    <label for="stPay">Datos de pago (salen en los mensajes de cobro y renovación)<input type="text" id="stPay" value="${esc(s.payInfo||'')}" placeholder="Nequi o Llave Bre-B al 313 426 6055"></label>
     <label for="stTpl">Mensaje de aviso de vencimiento<textarea id="stTpl" rows="4">${esc(s.template)}</textarea></label>
-    <p class="note">Puedes usar: {nombre} {producto} {cuando} {fecha} {precio}</p>
+    <p class="note">Puedes usar: {nombre} {producto} {cuando} {fecha} {precio} {pago}</p>
     <div class="toolbar"><button class="btn primary" data-act="savesettings">Guardar cambios</button></div>
   </div></div>
   ${DB?`<div class="box"><h2>Sesión</h2><p class="note" style="margin-bottom:10px">Conectado como <b>${esc(dbEmail.replace('@kmi.local',''))}</b>${dbRole==='dev'?' (desarrollador)':''}. Todo se guarda en la base de datos y se ve igual en todos tus dispositivos.</p>
@@ -1105,6 +1108,32 @@ function openSale(oid){
     toast(o?`Pedido ${o.code} confirmado · ${L.length} producto${L.length>1?'s':''}`:`Venta registrada · ${L.length} producto${L.length>1?'s':''}`);render()};
 }
 
+/* editar o borrar una suscripción (cuenta entregada, fechas, producto, cliente) */
+function openEditSub(id){
+  const s=S.subs.find(x=>x.id===id);if(!s)return;let armed=false;
+  const provOpts=()=>{const pid=$('#euProd').value,os=offersOf(pid);const ids=[...new Set([s.providerId,...os.map(o=>o.providerId)].filter(Boolean))];
+    return`<option value="">Sin proveedor</option>`+ids.map(v=>`<option value="${esc(v)}" ${v===s.providerId?'selected':''}>${esc(provName(v))}</option>`).join('')};
+  modal(`<h3>Editar suscripción</h3><p class="note">${esc(client(s.clientId).name)} · ${esc(prod(s.productId).name)}</p>
+    <div class="form">
+      <label for="euCli">Cliente<select id="euCli">${S.clients.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(c=>`<option value="${c.id}" ${c.id===s.clientId?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>
+      <label for="euProd">Servicio<select id="euProd">${S.products.map(p=>`<option value="${p.id}" ${p.id===s.productId?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>
+      <label for="euProv">Proveedor<select id="euProv"></select></label>
+      <label for="euAcct">Cuenta entregada (correo, perfil, PIN)<input type="text" id="euAcct" value="${esc(s.account||'')}" placeholder="Ej: Cuenta 07 · Perfil 3 · PIN 4821"></label>
+      <div class="row2"><label for="euStart">Empezó<input type="date" id="euStart" value="${s.start||''}"></label>
+      <label for="euEnd">Vence<input type="date" id="euEnd" value="${s.end}"></label></div>
+      <div class="toolbar"><button type="button" class="btn sm" data-q="-7">−7 días</button><button type="button" class="btn sm" data-q="7">+7 días</button><button type="button" class="btn sm" data-q="30">+30 días</button></div>
+      <p class="err" id="euErr" hidden></p>
+    </div>
+    <div class="acts"><button class="btn danger" id="euDel" style="margin-right:auto">Borrar</button><button class="btn" data-act="close">Volver</button><button class="btn primary" id="euSave">Guardar</button></div>`);
+  $('#euProv').innerHTML=provOpts();$('#euProd').addEventListener('change',()=>{$('#euProv').innerHTML=provOpts()});
+  $('.modal').addEventListener('click',e=>{const q=e.target.closest('[data-q]');if(q){const v=$('#euEnd').value||iso(today());$('#euEnd').value=addDays(v,Number(q.dataset.q))}});
+  $('#euSave').onclick=()=>{const end=$('#euEnd').value;if(!end){$('#euErr').textContent='Pon la fecha de vencimiento.';$('#euErr').hidden=false;return}
+    s.clientId=$('#euCli').value;s.productId=$('#euProd').value;s.providerId=$('#euProv').value||null;s.account=$('#euAcct').value.trim();s.start=$('#euStart').value||s.start;s.end=end;
+    if(daysLeft(end)>S.settings.warnDays)s.notified=null;save();closeModal();toast('Suscripción actualizada');render()};
+  $('#euDel').onclick=e=>{if(!armed){armed=true;e.target.textContent='¿Seguro? Toca otra vez';setTimeout(()=>{armed=false;const b=$('#euDel');b&&(b.textContent='Borrar')},4000);return}
+    S.subs=S.subs.filter(x=>x!==s);save();closeModal();toast('Suscripción borrada');render()};
+}
+
 /* editar o borrar una venta ya registrada */
 function openEditSale(id){
   const s=S.sales.find(x=>x.id===id);if(!s)return;let armed=false;
@@ -1144,7 +1173,7 @@ function openRenew(clientId,onlySub){
     <div class="stot" id="rnTot"></div>
     <div class="acts">${c.phone?`<a class="btn wa" id="rnWa" target="_blank" rel="noopener" href="#">${WA_SVG} Enviar cobro</a>`:''}<button class="btn" data-act="close">Volver</button><button class="btn primary" id="rnGo">Renovar</button></div>`);
   const chosen=()=>subs.filter(s=>sel.has(s.id));
-  const msg=()=>{const ch=chosen(),t=ch.reduce((a,s)=>a+price[s.id],0);return`Hola ${c.name.split(' ')[0]}, te escribimos de ${S.settings.store}. Para renovar:\n${ch.map(s=>`• ${pname(prod(s.productId))}: ${fmt(price[s.id])} (${cuando(s.end)})`).join('\n')}\n\nTotal: *${fmt(t)}*. Nos confirmas cuando pagues y te dejamos todo al día.`};
+  const msg=()=>{const ch=chosen(),t=ch.reduce((a,s)=>a+price[s.id],0);return`Hola ${c.name.split(' ')[0]}, te escribimos de ${S.settings.store}. Para renovar:\n${ch.map(s=>`• ${pname(prod(s.productId))}: ${fmt(price[s.id])} (${cuando(s.end)})`).join('\n')}\n\nTotal: *${fmt(t)}*. ${payLine()} Nos confirmas cuando pagues y te dejamos todo al día.`};
   const upd=()=>{const ch=chosen(),t=ch.reduce((a,s)=>a+price[s.id],0),g=ch.reduce((a,s)=>a+price[s.id]-prod(s.productId).cost,0);
     const all=$('#rnAll');if(all){all.checked=ch.length===subs.length;all.indeterminate=ch.length>0&&ch.length<subs.length}
     $('#rnTot').innerHTML=`<div><span>${ch.length} de ${subs.length} seleccionado${subs.length>1?'s':''}</span><b class="num">${fmt(t)}</b></div><div><span>Tu ganancia</span><b class="num" style="color:var(--good)">${fmt(g)}</b></div>`;
@@ -1210,7 +1239,7 @@ function debtCard(g,t){const c=client(g.cid);
       <div class="r"><b class="num">${bal?fmt(bal):'Pagada'}</b><div class="acts">${bal?`<button class="btn sm" data-act="payfull" data-id="${s.id}">Pagar todo</button>`:''}<button class="btn sm ghost" data-act="editsale" data-id="${s.id}">Editar</button></div></div></div>`}).join('')}</div>
     ${g.bal?`<div class="toolbar" style="margin-top:12px"><button class="btn primary sm" data-act="abonar" data-id="${g.cid}">Registrar abono</button>${c.phone?`<a class="btn wa sm" target="_blank" rel="noopener" href="${esc(waLink(c.phone,debtMsg(g)))}">${WA_SVG} Cobrar</a>`:''}<button class="btn sm" data-act="payallc" data-id="${g.cid}">Pagó todo</button></div>`:''}
   </div>`}
-function debtMsg(g){const c=client(g.cid);return`Hola ${c.name.split(' ')[0]}, te escribimos de ${S.settings.store}. Tienes un saldo pendiente:\n${g.ss.filter(s=>balOf(s)>0).map(s=>`• ${prod(s.productId).name}: ${fmt(balOf(s))}${s.due?` (vence ${fdate(s.due)})`:''}`).join('\n')}\n\nTotal: *${fmt(g.bal)}*. Puedes abonar por Nequi, Daviplata o Bancolombia. ¡Gracias!`}
+function debtMsg(g){const c=client(g.cid);return`Hola ${c.name.split(' ')[0]}, te escribimos de ${S.settings.store}. Tienes un saldo pendiente:\n${g.ss.filter(s=>balOf(s)>0).map(s=>`• ${prod(s.productId).name}: ${fmt(balOf(s))}${s.due?` (vence ${fdate(s.due)})`:''}`).join('\n')}\n\nTotal: *${fmt(g.bal)}*. ${payLine()} ¡Gracias!`}
 function openAbono(cid,sid,full){
   const ss=S.sales.filter(s=>s.method==='credito'&&balOf(s)>0&&(sid?s.id===sid:s.clientId===cid)),tot=ss.reduce((a,s)=>a+balOf(s),0);if(!ss.length)return;
   const who=client(ss[0].clientId).name.split(' ')[0];
@@ -1302,6 +1331,7 @@ document.addEventListener('click',e=>{
   else if(a==='cancel'){const o=S.orders.find(x=>x.id===id);o.status='cancelado';save();toast(`Pedido ${o.code} cancelado`);render()}
   else if(a==='newsale'){closeModal();openSale()}
   else if(a==='editsale')openEditSale(id);
+  else if(a==='editsub')openEditSub(id);
   else if(a==='renewc')openRenew(id);
   else if(a==='renew'){const s=S.subs.find(x=>x.id===id);if(s)openRenew(s.clientId,id)}
   else if(a==='notify'){const s=S.subs.find(x=>x.id===id);s.notified=iso(today());save();setTimeout(render,300)}
@@ -1313,7 +1343,7 @@ document.addEventListener('click',e=>{
   else if(a==='logout'){closeModal();dbLogout()}
   else if(a==='rmimg'){const p=S.products.find(x=>x.id===id);delete p.img;save();render();toast('Imagen quitada')}
   else if(a==='addprod'){const n=S.products.filter(p=>p.type!=='combo').length;S.products.push({id:'p'+uid(),name:'Nuevo producto',mono:'NP',cat:'video',desc:'1 pantalla · perfil propio',price:10000,cost:6000,h:(n*47)%360,days:30,active:false,type:'single'});save();render();toast('Producto agregado. Ponle nombre y márcalo como visible.')}
-  else if(a==='savesettings'){S.settings.store=$('#stName').value.trim()||'Mi tienda';S.settings.phone=digits($('#stPhone').value);S.settings.warnDays=Math.max(1,Number($('#stWarn').value)||5);S.settings.template=$('#stTpl').value;save();toast('Cambios guardados');render()}
+  else if(a==='savesettings'){S.settings.store=$('#stName').value.trim()||'Mi tienda';S.settings.phone=digits($('#stPhone').value);S.settings.warnDays=Math.max(1,Number($('#stWarn').value)||5);S.settings.template=$('#stTpl').value;S.settings.payInfo=$('#stPay').value.trim();save();toast('Cambios guardados');render()}
   else if(a==='reset'){if(!resetArmed){resetArmed=true;el.textContent='¿Seguro? Toca otra vez para confirmar';setTimeout(()=>{resetArmed=false;const b=$('#resetBtn');b&&(b.textContent='Volver a los datos de ejemplo')},4000);return}
     resetArmed=false;S=seed();save();toast('Datos de ejemplo restaurados');render()}
 });
@@ -1390,9 +1420,9 @@ const MAP={
 };
 const ORDER=['providers','products','offers','clients','subscriptions','sales','payments','orders'];
 const LOCAL={providers:'providers',products:'products',offers:'offers',clients:'clients',subscriptions:'subs',sales:'sales',payments:'payments',orders:'orders'};
-function emptyState(){return{settings:{store:'Kmi Entretenimiento',phone:'',warnDays:5,template:'',nextOrder:1,stockV:1,pricesV:2},products:[],providers:[],offers:[],clients:[],subs:[],sales:[],payments:[],orders:[]}}
+function emptyState(){return{settings:{store:'Kmi Entretenimiento',phone:'',warnDays:5,template:'',payInfo:'Nequi o Llave Bre-B al 313 426 6055',nextOrder:1,stockV:1,pricesV:2},products:[],providers:[],offers:[],clients:[],subs:[],sales:[],payments:[],orders:[]}}
 function dbTables(){const t={};ORDER.forEach(k=>{t[k]=new Map(S[LOCAL[k]].map((x,i)=>{const r=MAP[k].to(x,i);return[r.id,JSON.stringify(r)]}))});
-  const st=S.settings;t.settings=new Map([['1',JSON.stringify({id:1,store:st.store,phone:st.phone,warn_days:st.warnDays,template:st.template})]]);return t}
+  const st=S.settings;t.settings=new Map([['1',JSON.stringify({id:1,store:st.store,phone:st.phone,warn_days:st.warnDays,template:st.template,pay_info:st.payInfo||''})]]);return t}
 function scheduleSync(){clearTimeout(syncT);syncT=setTimeout(sync,500)}
 async function sync(){syncT=null;if(!dbSeller)return;if(syncing){syncAgain=true;return}syncing=true;
   try{const cur=dbTables();
@@ -1412,7 +1442,7 @@ async function enterSeller(){const a=await DB.from('admins').select('email,role'
   const r=await Promise.all([q('providers').order('name'),q('products').order('sort'),q('offers'),q('clients').order('created_at'),q('subscriptions'),q('sales').order('date'),q('payments').order('date'),q('orders').order('created_at',{ascending:false}),q('settings').eq('id',1)]);
   const bad=r.find(x=>x.error);if(bad){toast('No se pudieron cargar tus datos: '+bad.error.message);return false}
   const [pv,pr,of,cl,su,sa,pa,or,st]=r.map(x=>x.data);const set=st[0]||{};
-  S={settings:{store:set.store||'Kmi Entretenimiento',phone:set.phone||'',warnDays:set.warn_days||5,template:set.template||'',nextOrder:1,stockV:1,pricesV:2},
+  S={settings:{store:set.store||'Kmi Entretenimiento',phone:set.phone||'',warnDays:set.warn_days||5,template:set.template||'',payInfo:set.pay_info||'Nequi o Llave Bre-B al 313 426 6055',nextOrder:1,stockV:1,pricesV:2},
     providers:pv.map(MAP.providers.from),products:pr.map(MAP.products.from),offers:of.map(MAP.offers.from),clients:cl.map(MAP.clients.from),
     subs:su.map(MAP.subscriptions.from),sales:sa.map(MAP.sales.from),payments:pa.map(MAP.payments.from),orders:or.map(MAP.orders.from)};
   const me=(await DB.auth.getUser()).data.user,row=a.data.find(x=>x.email===(me&&me.email))||a.data[0];dbEmail=row.email;dbRole=row.role||'admin';dbSeller=true;dbLoaded=true;snap=dbTables();applySeller();render();return true}
