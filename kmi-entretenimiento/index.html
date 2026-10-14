@@ -7,7 +7,17 @@
 <meta name="description" content="Cuentas de Netflix, Disney+, HBO Max, Prime Video, YouTube Premium, ChatGPT y más. Pide por WhatsApp, paga por Nequi o Daviplata y recibe tu acceso en minutos.">
 <meta property="og:title" content="Kmi Entretenimiento">
 <meta property="og:description" content="Tus plataformas favoritas, listas en minutos. Pide por WhatsApp.">
-<meta property="og:image" content="https://kmi-entretenimiento.vercel.app/logo.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Kmi Entretenimiento">
+<meta property="og:locale" content="es_CO">
+<meta property="og:url" content="https://kmi-entretenimiento.vercel.app/">
+<meta property="og:image" content="https://kmi-entretenimiento.vercel.app/og.jpg">
+<meta property="og:image:secure_url" content="https://kmi-entretenimiento.vercel.app/og.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Kmi Entretenimiento: Netflix, Disney+, HBO Max y más desde $12.000 al mes">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#4F3BF2">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -1049,17 +1059,17 @@ function registerSale({clientId,productId,providerId,cost,account,start,price,me
   return sale;
 }
 /* una venta puede llevar varios productos: cada línea es producto + proveedor + precio + cuenta entregada */
-function defOffer(pid){const p=prod(pid),os=offersOf(pid).filter(o=>o.cost!=null);return(os.find(o=>o.providerId===p.providerId)||os[0]||{}).id||''}
+function defOffer(pid){const os=offersOf(pid).filter(o=>o.cost!=null).sort((a,b)=>a.cost-b.cost);return(os[0]||{}).id||''}
 const newLine=pid=>({productId:pid,offerId:defOffer(pid),price:prod(pid).price,account:''});
 const lineCost=l=>{const o=S.offers.find(x=>x.id===l.offerId);return o?o.cost:prod(l.productId).cost};
 function lineHtml(l,i,n){
   const opts=S.products.map(p=>`<option value="${p.id}" ${p.id===l.productId?'selected':''}>${esc(p.name)} — ${fmt(p.price)}${p.active?'':' (oculto)'}</option>`).join('');
-  const os=offersOf(l.productId).filter(o=>o.cost!=null);
-  const prov=os.length?os.map(o=>`<option value="${o.id}" ${o.id===l.offerId?'selected':''}>${esc(provName(o.providerId))} · costo ${fmt(o.cost)}</option>`).join(''):'<option value="">Sin proveedor</option>';
+  const os=offersOf(l.productId).filter(o=>o.cost!=null).sort((a,b)=>a.cost-b.cost),min=os.length?os[0].cost:0;
+  const prov=os.length?os.map(o=>`<option value="${o.id}" ${o.id===l.offerId?'selected':''}>${esc(provName(o.providerId))} · te cobra ${fmt(o.cost)} · ganas ${fmt((Number(l.price)||0)-o.cost)}${o.cost===min&&os.length>1?' ★ más barato':''}</option>`).join(''):'<option value="">Sin proveedor</option>';
   return`<div class="sline" data-i="${i}">
     <div class="slh"><b>Producto${n>1?' '+(i+1):''}</b>${n>1?`<button type="button" class="btn ghost sm danger" data-rm="${i}">Quitar</button>`:''}</div>
     <label>Producto<select data-k="productId">${opts}</select></label>
-    <div class="row2"><label>Proveedor<select data-k="offerId">${prov}</select></label>
+    <div class="row2"><label>Proveedor (tú eliges; el cliente no lo ve)<select data-k="offerId">${prov}</select></label>
     <label>Precio cobrado<input type="number" step="500" min="0" data-k="price" value="${l.price}"></label></div>
     <label>Cuenta entregada (correo, perfil, PIN)<input type="text" data-k="account" value="${esc(l.account)}" placeholder="Ej: Cuenta 07 · Perfil 3 · PIN 4821"></label>
   </div>`}
@@ -1089,8 +1099,8 @@ function openSale(oid){
   box.addEventListener('input',e=>{const k=e.target.dataset.k;if(!k||k==='offerId')return;const i=+e.target.closest('.sline').dataset.i;
     if(k==='productId'){L[i]=newLine(e.target.value);paint();return}
     L[i][k]=k==='price'?Math.max(0,Number(e.target.value)||0):e.target.value;tot()});
-  box.addEventListener('change',e=>{if(e.target.dataset.k!=='offerId')return;const i=+e.target.closest('.sline').dataset.i;L[i].offerId=e.target.value;
-    const of=S.offers.find(x=>x.id===e.target.value);if(of&&of.price!=null){L[i].price=of.price;paint()}else tot()});
+  box.addEventListener('change',e=>{if(e.target.dataset.k==='price'){paint();return}if(e.target.dataset.k!=='offerId')return;const i=+e.target.closest('.sline').dataset.i;L[i].offerId=e.target.value;
+    tot()});
   box.addEventListener('click',e=>{const r=e.target.closest('[data-rm]');if(r){L.splice(+r.dataset.rm,1);paint()}});
   $('#sfAdd').onclick=()=>{L.push(newLine(L[L.length-1].productId));paint();box.lastElementChild.querySelector('select').focus()};
   const when=()=>{const v=$('#sfStart').value,d=v?-daysLeft(v):0;$('#sfWhen').hidden=!d;$('#sfWhen').textContent=d>0?`Se registra como venta de hace ${d} día${d===1?'':'s'} (${fdl(v)}).`:''};
