@@ -1023,7 +1023,7 @@ function ajustes(){const s=S.settings;return`
     <div class="row2"><label for="stName">Nombre de la tienda<input type="text" id="stName" value="${esc(s.store)}"></label>
     <label for="stPhone">Tu WhatsApp (con 57 adelante)<input type="tel" id="stPhone" value="${esc(s.phone)}"></label></div>
     <label for="stWarn" style="max-width:260px">Avisar cuando falten (días)<input type="number" id="stWarn" min="1" max="30" value="${s.warnDays}"></label>
-    <label for="stPay">Datos de pago (salen en los mensajes de cobro y renovación)<input type="text" id="stPay" value="${esc(s.payInfo||'')}" placeholder="Nequi o Llave Bre-B al 313 426 6055"></label>
+    <label for="stPay">Datos de pago (salen en los mensajes de cobro y renovación)<input type="text" id="stPay" value="${esc(s.payInfo||'')}" placeholder="Nequi o Llave Bre-B al 318 619 0547"></label>
     <label for="stTpl">Mensaje de aviso de vencimiento<textarea id="stTpl" rows="4">${esc(s.template)}</textarea></label>
     <p class="note">Puedes usar: {nombre} {producto} {cuando} {fecha} {precio} {pago}</p>
     <div class="toolbar"><button class="btn primary" data-act="savesettings">Guardar cambios</button></div>
@@ -1420,7 +1420,7 @@ const MAP={
 };
 const ORDER=['providers','products','offers','clients','subscriptions','sales','payments','orders'];
 const LOCAL={providers:'providers',products:'products',offers:'offers',clients:'clients',subscriptions:'subs',sales:'sales',payments:'payments',orders:'orders'};
-function emptyState(){return{settings:{store:'Kmi Entretenimiento',phone:'',warnDays:5,template:'',payInfo:'Nequi o Llave Bre-B al 313 426 6055',nextOrder:1,stockV:1,pricesV:2},products:[],providers:[],offers:[],clients:[],subs:[],sales:[],payments:[],orders:[]}}
+function emptyState(){return{settings:{store:'Kmi Entretenimiento',phone:'',warnDays:5,template:'',payInfo:'Nequi o Llave Bre-B al 318 619 0547',nextOrder:1,stockV:1,pricesV:2},products:[],providers:[],offers:[],clients:[],subs:[],sales:[],payments:[],orders:[]}}
 function dbTables(){const t={};ORDER.forEach(k=>{t[k]=new Map(S[LOCAL[k]].map((x,i)=>{const r=MAP[k].to(x,i);return[r.id,JSON.stringify(r)]}))});
   const st=S.settings;t.settings=new Map([['1',JSON.stringify({id:1,store:st.store,phone:st.phone,warn_days:st.warnDays,template:st.template,pay_info:st.payInfo||''})]]);return t}
 function scheduleSync(){clearTimeout(syncT);syncT=setTimeout(sync,500)}
@@ -1442,7 +1442,7 @@ async function enterSeller(){const a=await DB.from('admins').select('email,role'
   const r=await Promise.all([q('providers').order('name'),q('products').order('sort'),q('offers'),q('clients').order('created_at'),q('subscriptions'),q('sales').order('date'),q('payments').order('date'),q('orders').order('created_at',{ascending:false}),q('settings').eq('id',1)]);
   const bad=r.find(x=>x.error);if(bad){toast('No se pudieron cargar tus datos: '+bad.error.message);return false}
   const [pv,pr,of,cl,su,sa,pa,or,st]=r.map(x=>x.data);const set=st[0]||{};
-  S={settings:{store:set.store||'Kmi Entretenimiento',phone:set.phone||'',warnDays:set.warn_days||5,template:set.template||'',payInfo:set.pay_info||'Nequi o Llave Bre-B al 313 426 6055',nextOrder:1,stockV:1,pricesV:2},
+  S={settings:{store:set.store||'Kmi Entretenimiento',phone:set.phone||'',warnDays:set.warn_days||5,template:set.template||'',payInfo:set.pay_info||'Nequi o Llave Bre-B al 318 619 0547',nextOrder:1,stockV:1,pricesV:2},
     providers:pv.map(MAP.providers.from),products:pr.map(MAP.products.from),offers:of.map(MAP.offers.from),clients:cl.map(MAP.clients.from),
     subs:su.map(MAP.subscriptions.from),sales:sa.map(MAP.sales.from),payments:pa.map(MAP.payments.from),orders:or.map(MAP.orders.from)};
   const me=(await DB.auth.getUser()).data.user,row=a.data.find(x=>x.email===(me&&me.email))||a.data[0];dbEmail=row.email;dbRole=row.role||'admin';dbSeller=true;dbLoaded=true;snap=dbTables();applySeller();render();return true}
