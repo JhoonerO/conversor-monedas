@@ -100,7 +100,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .mono{width:40px;height:40px;border-radius:11px;background:hsl(var(--h) 62% 42%);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:14px;letter-spacing:-.02em;flex:none}
 .mono.br{background:var(--pb);color:var(--pf);border:1px solid color-mix(in srgb,var(--ink) 10%,transparent)}
 .poster{position:relative;aspect-ratio:16/9;max-width:100%;border-radius:12px;display:grid;place-items:center;text-align:center;background:var(--pb);color:var(--pf);font-family:var(--pff,var(--display));font-weight:800;font-size:var(--pfs,26px);letter-spacing:var(--pls,-.02em);line-height:1;padding:0 10px;border:1px solid color-mix(in srgb,var(--ink) 10%,transparent);overflow:hidden}
-.poster:not(.img)::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 90% at 85% 0%,rgb(255 255 255 / .16),transparent 55%),linear-gradient(to top,rgb(0 0 0 / .28),transparent 45%);pointer-events:none}
+.poster:not(.img):not(.haslg)::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 90% at 85% 0%,rgb(255 255 255 / .16),transparent 55%),linear-gradient(to top,rgb(0 0 0 / .28),transparent 45%);pointer-events:none}
 .poster .tag{position:absolute;left:8px;top:8px;font:600 11px/1 var(--body);letter-spacing:.06em;text-transform:uppercase;color:#fff;background:rgb(0 0 0 / .45);padding:4px 7px;border-radius:6px}
 .poster.img{padding:0;background:var(--surface-2)}
 .ccov{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;aspect-ratio:16/9;max-width:100%;border-radius:12px;overflow:hidden;border:1px solid color-mix(in srgb,var(--ink) 10%,transparent)}
@@ -111,6 +111,10 @@ button,input,select,textarea{font:inherit;color:inherit}
 .thumb .ccov span{font-size:10px}
 .thumb .tag{display:none}
 .poster.img img{width:100%;height:100%;object-fit:cover}
+.poster img.lg,.ccov span img.lg{position:absolute;inset:0;margin:auto;max-width:72%;max-height:44%;object-fit:contain}
+.ccov span{position:relative}
+.ccov span img.lg{max-width:78%;max-height:40%}
+img.lg.inv{filter:invert(1)}
 .mono.img{background:var(--surface-2);overflow:hidden;border:1px solid var(--line)}
 .mono.img img{width:100%;height:100%;object-fit:cover;display:block}
 .card .mono{width:52px;height:52px;border-radius:14px;font-size:17px}
@@ -389,26 +393,28 @@ function save(){if(DB){scheduleSync();return true}try{localStorage.setItem(KEY,J
 const prod=id=>S.products.find(p=>p.id===id)||{name:'Producto eliminado',mono:'?',h:0,price:0,cost:0,days:30,items:[]};
 const client=id=>S.clients.find(c=>c.id===id)||{name:'—',phone:''};
 const BRAND={
-  nf:{bg:'#000000',fg:'#E50914',w:'NETFLIX',ls:'.04em',ff:"'Bebas Neue',var(--display)",fs:'40px'},
-  dp:{bg:'linear-gradient(135deg,#06104A,#123E9C 60%,#1C8BD8)',fg:'#FFFFFF',w:'Disney+',fs:'30px'},
-  mx:{bg:'#002BE7',fg:'#FFFFFF',w:'HBO max',fs:'32px',ls:'-.03em'},
-  pv:{bg:'#0F171E',fg:'#FFFFFF',w:'prime video',fs:'26px',ac:'#1A98FF'},
-  cr:{bg:'#F47521',fg:'#FFFFFF',w:'crunchyroll',fs:'24px'},
-  pp:{bg:'linear-gradient(135deg,#0033A0,#0064FF)',fg:'#FFFFFF',w:'Paramount+',fs:'24px'},
-  sp:{bg:'#121212',fg:'#1ED760',w:'Spotify',fs:'30px'},
-  px:{bg:'#1F1F1F',fg:'#E5A00D',w:'plex',fs:'40px',ls:'-.03em'},
-  gp:{bg:'#FFFFFF',fg:'#0D0D0D',w:'ChatGPT',fs:'28px'},
-  cc:{bg:'#000000',fg:'#FFFFFF',w:'CapCut',fs:'30px'},
-  yt:{bg:'#FFFFFF',fg:'#FF0033',w:'YouTube Premium',fs:'21px',ink:'#0F0F0F'},
+  nf:{bg:'#000000',fg:'#E50914',w:'NETFLIX',ls:'.04em',ff:"'Bebas Neue',var(--display)",fs:'40px',lg:'logos/netflix.svg'},
+  dp:{bg:'linear-gradient(135deg,#06104A,#123E9C 60%,#1C8BD8)',fg:'#FFFFFF',w:'Disney+',fs:'30px',lg:'logos/disney.png',lh:'62%'},
+  mx:{bg:'#002BE7',fg:'#FFFFFF',w:'HBO max',fs:'32px',ls:'-.03em',lg:'logos/hbomax.svg',inv:1,lh:'56%'},
+  pv:{bg:'#FFFFFF',fg:'#0F171E',w:'prime video',fs:'26px',ac:'#1A98FF',lg:'logos/primevideo.svg'},
+  cr:{bg:'#FFFFFF',fg:'#F47521',w:'crunchyroll',fs:'24px',lg:'logos/crunchyroll.svg',lh:'66%'},
+  pp:{bg:'#FFFFFF',fg:'#0064FF',w:'Paramount+',fs:'24px',lg:'logos/paramount.png'},
+  sp:{bg:'#121212',fg:'#1ED760',w:'Spotify',fs:'30px',lg:'logos/spotify.png',lh:'54%'},
+  px:{bg:'#FFFFFF',fg:'#1F1F1F',w:'plex',fs:'40px',ls:'-.03em',lg:'logos/plex.webp',lh:'40%'},
+  gp:{bg:'#FFFFFF',fg:'#0D0D0D',w:'ChatGPT',fs:'28px',lg:'logos/chatgpt.svg',lh:'54%'},
+  cc:{bg:'#FFFFFF',fg:'#000000',w:'CapCut',fs:'30px',lg:'logos/capcut.png'},
+  yt:{bg:'#FFFFFF',fg:'#FF0033',w:'YouTube Premium',fs:'21px',lg:'logos/youtube.svg'},
 };
+const logoImg=(b,alt)=>`<img class="lg${b.inv?' inv':''}" src="${b.lg}" alt="${esc(alt)}"${b.lh?` style="max-height:${b.lh}"`:''}>`;
 const brandStyle=b=>`--pb:${b.bg};--pf:${b.fg};${b.ls?`--pls:${b.ls};`:''}${b.ff?`--pff:${b.ff};`:''}${b.fs?`--pfs:${b.fs};`:''}`;
 const monoOf=p=>{if(p.img)return`<span class="mono img"><img src="${p.img}" alt=""></span>`;const b=BRAND[p.id];
   return b?`<span class="mono br" style="${brandStyle(b)}">${esc(p.mono||p.name.slice(0,2))}</span>`:`<span class="mono" style="--h:${p.h??220}">${esc(p.mono||p.name.slice(0,2))}</span>`};
 const posterOf=p=>{if(p.cover)return`<div class="poster img"><img src="${p.cover}" alt="Portada de ${esc(p.name)}"></div>`;
-  if(p.type==='combo')return`<div class="ccov" aria-hidden="true">${p.items.map(i=>{const q=prod(i),b=BRAND[i];return`<span style="${b?brandStyle(b):`--pb:hsl(${q.h??220} 55% 38%);--pf:#fff`}">${esc(q.mono||q.name.slice(0,2))}</span>`}).join('')}</div>`;
+  if(p.type==='combo')return`<div class="ccov" aria-hidden="true">${p.items.map(i=>{const q=prod(i),b=BRAND[i];return`<span style="${b?brandStyle(b):`--pb:hsl(${q.h??220} 55% 38%);--pf:#fff`}">${b&&b.lg?logoImg(b,q.name):esc(q.mono||q.name.slice(0,2))}</span>`}).join('')}</div>`;
   const tag=`<span class="tag">${p.days||30} días</span>`;
   if(p.img)return`<div class="poster img"><img src="${p.img}" alt=""></div>`;const b=BRAND[p.id];
   if(!b)return`<div class="poster" style="--pb:linear-gradient(135deg,hsl(${p.h??220} 60% 30%),hsl(${((p.h??220)+40)%360} 65% 45%));--pf:#fff">${esc(p.name)}${tag}</div>`;
+  if(b.lg)return`<div class="poster haslg" style="${brandStyle(b)}">${logoImg(b,p.name)}${tag}</div>`;
   const w=b.ink?b.w.replace('YouTube',`<span style="color:${b.ink}">YouTube</span>`):b.ac?b.w.replace('prime',`prime<span style="display:block;height:3px;width:56px;background:${b.ac};border-radius:3px;margin:4px auto 0"></span>`):esc(b.w);
   return`<div class="poster" style="${brandStyle(b)}">${b.ink||b.ac?w:esc(b.w)}${tag}</div>`};
 const monos=p=>p.type==='combo'?`<div class="monos">${p.items.map(i=>monoOf(prod(i))).join('')}</div>`:monoOf(p);
