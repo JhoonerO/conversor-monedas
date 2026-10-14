@@ -1044,7 +1044,7 @@ function registerSale({clientId,productId,providerId,cost,account,start,price,me
   const p=prod(productId);
   const sub={id:uid(),clientId,productId,start,end:addDays(start,p.days),account,providerId:providerId??p.providerId??null};
   S.subs.push(sub);
-  const sale={id:uid(),date:iso(today()),productId,clientId,price:Number(price)||p.price,cost:cost??p.cost,providerId:sub.providerId,kind:'nueva',method:method||'efectivo',due:method==='credito'?due||null:null};
+  const sale={id:uid(),date:start||iso(today()),productId,clientId,price:Number(price)||p.price,cost:cost??p.cost,providerId:sub.providerId,kind:'nueva',method:method||'efectivo',due:method==='credito'?due||null:null};
   S.sales.push(sale);
   return sale;
 }
@@ -1075,7 +1075,8 @@ function openSale(oid){
       <label for="sfPhone">WhatsApp<input type="tel" id="sfPhone" value="${esc(o?o.phone:'')}" placeholder="300 123 4567"></label></div>
       <div id="sfLines" class="slines"></div>
       <button type="button" class="btn sm" id="sfAdd">+ Añadir otro producto</button>
-      <label for="sfStart">Empieza<input type="date" id="sfStart" value="${iso(today())}"></label>
+      <label for="sfStart">Fecha de la venta (desde ahí cuentan los días)<input type="date" id="sfStart" value="${iso(today())}" max="${iso(today())}"></label>
+      <p class="note" id="sfWhen" hidden></p>
       ${payFields('sf')}
       <div class="stot" id="sfTot"></div>
       <p class="err" id="sfErr" hidden></p>
@@ -1092,7 +1093,8 @@ function openSale(oid){
     const of=S.offers.find(x=>x.id===e.target.value);if(of&&of.price!=null){L[i].price=of.price;paint()}else tot()});
   box.addEventListener('click',e=>{const r=e.target.closest('[data-rm]');if(r){L.splice(+r.dataset.rm,1);paint()}});
   $('#sfAdd').onclick=()=>{L.push(newLine(L[L.length-1].productId));paint();box.lastElementChild.querySelector('select').focus()};
-  $('#sfStart').addEventListener('input',tot);wirePay('sf');
+  const when=()=>{const v=$('#sfStart').value,d=v?-daysLeft(v):0;$('#sfWhen').hidden=!d;$('#sfWhen').textContent=d>0?`Se registra como venta de hace ${d} día${d===1?'':'s'} (${fdl(v)}).`:''};
+  $('#sfStart').addEventListener('input',()=>{tot();when()});wirePay('sf');
   const cli=$('#sfCli');if(cli)cli.addEventListener('change',()=>{$('#sfNew').hidden=!!cli.value});
   paint();
   $('#doSale').onclick=()=>{const err=$('#sfErr');err.hidden=true;
@@ -1103,7 +1105,7 @@ function openSale(oid){
     const start=$('#sfStart').value||iso(today());
     const pay=readPay('sf');
     const made=L.map(l=>{const of=S.offers.find(x=>x.id===l.offerId);return registerSale({clientId,productId:l.productId,providerId:of?of.providerId:null,cost:lineCost(l),account:l.account.trim(),start,price:l.price,method:pay.method,due:pay.due})});
-    if(pay.abono)applyPayment(made,Math.min(pay.abono,made.reduce((a,x)=>a+x.price,0)),'efectivo',iso(today()),'abono inicial');
+    if(pay.abono)applyPayment(made,Math.min(pay.abono,made.reduce((a,x)=>a+x.price,0)),'efectivo',start,'abono inicial');
     if(o)o.status='confirmado';save();closeModal();
     toast(o?`Pedido ${o.code} confirmado · ${L.length} producto${L.length>1?'s':''}`:`Venta registrada · ${L.length} producto${L.length>1?'s':''}`);render()};
 }
@@ -1161,15 +1163,16 @@ function openRenew(clientId,onlySub){
   const c=client(clientId),subs=S.subs.filter(s=>s.clientId===clientId).sort((a,b)=>a.end.localeCompare(b.end));if(!subs.length)return;
   const w=S.settings.warnDays,sel=new Set(onlySub?[onlySub]:subs.filter(s=>daysLeft(s.end)<=w).map(s=>s.id));if(!sel.size)subs.forEach(s=>sel.add(s.id));
   const price={};subs.forEach(s=>price[s.id]=prod(s.productId).price);
-  const newEnd=s=>addDays(daysLeft(s.end)<0?iso(today()):s.end,prod(s.productId).days);
+  const rDay=()=>($('#rnDate')&&$('#rnDate').value)||iso(today());
+  const newEnd=s=>addDays(s.end<rDay()?rDay():s.end,prod(s.productId).days);
   modal(`<h3>Renovar a ${esc(c.name.split(' ')[0])}</h3>
     <p class="note">Tiene ${subs.length} servicio${subs.length>1?'s':''}. Marca los que va a renovar; puedes cambiar el precio de cada uno.</p>
     ${subs.length>1?'<label class="rnall"><input type="checkbox" id="rnAll"> Seleccionar todos</label>':''}
     <div class="rnlist">${subs.map(s=>{const p=prod(s.productId),[k,l]=status(s.end);return`<div class="rn">
       <input type="checkbox" data-sid="${s.id}" ${sel.has(s.id)?'checked':''} aria-label="Renovar ${esc(p.name)}">
-      <div class="grow"><div class="t">${esc(p.name)} <span class="chip ${k}">${l}</span></div><div class="m">${s.account?esc(s.account)+' · ':''}vence ${fdate(s.end)} → <b>${fdate(newEnd(s))}</b></div></div>
+      <div class="grow"><div class="t">${esc(p.name)} <span class="chip ${k}">${l}</span></div><div class="m">${s.account?esc(s.account)+' · ':''}vence ${fdate(s.end)} → <b data-ne="${s.id}">${fdate(newEnd(s))}</b></div></div>
       <input type="number" step="500" min="0" data-pid="${s.id}" value="${price[s.id]}" aria-label="Precio de ${esc(p.name)}"></div>`}).join('')}</div>
-    <div class="form">${payFields('rn')}</div>
+    <div class="form"><label for="rnDate">Fecha de la renovación (cuándo pagó)<input type="date" id="rnDate" value="${iso(today())}" max="${iso(today())}"></label>${payFields('rn')}</div>
     <div class="stot" id="rnTot"></div>
     <div class="acts">${c.phone?`<a class="btn wa" id="rnWa" target="_blank" rel="noopener" href="#">${WA_SVG} Enviar cobro</a>`:''}<button class="btn" data-act="close">Volver</button><button class="btn primary" id="rnGo">Renovar</button></div>`);
   const chosen=()=>subs.filter(s=>sel.has(s.id));
@@ -1178,16 +1181,18 @@ function openRenew(clientId,onlySub){
     const all=$('#rnAll');if(all){all.checked=ch.length===subs.length;all.indeterminate=ch.length>0&&ch.length<subs.length}
     $('#rnTot').innerHTML=`<div><span>${ch.length} de ${subs.length} seleccionado${subs.length>1?'s':''}</span><b class="num">${fmt(t)}</b></div><div><span>Tu ganancia</span><b class="num" style="color:var(--good)">${fmt(g)}</b></div>`;
     $('#rnGo').disabled=!ch.length;$('#rnGo').textContent=ch.length===subs.length&&subs.length>1?'Renovar todos':ch.length>1?`Renovar ${ch.length}`:'Renovar';
-    const wa=$('#rnWa');if(wa){wa.href=waLink(c.phone,msg());wa.classList.toggle('off',!ch.length)}};
+    const wa=$('#rnWa');if(wa){wa.href=waLink(c.phone,msg());wa.classList.toggle('off',!ch.length)}
+    subs.forEach(s=>{const b=m.querySelector(`[data-ne="${s.id}"]`);if(b)b.textContent=fdate(newEnd(s))})};
   const m=$('.modal');
+  $('#rnDate').addEventListener('input',()=>upd());
   m.addEventListener('change',e=>{const id=e.target.dataset.sid;if(id){e.target.checked?sel.add(id):sel.delete(id);upd()}
     if(e.target.id==='rnAll'){subs.forEach(s=>e.target.checked?sel.add(s.id):sel.delete(s.id));m.querySelectorAll('[data-sid]').forEach(x=>x.checked=e.target.checked);upd()}});
   m.addEventListener('input',e=>{const id=e.target.dataset.pid;if(id){price[id]=Math.max(0,Number(e.target.value)||0);upd()}});
   upd();wirePay('rn');
   $('#rnGo').onclick=()=>{const ch=chosen();if(!ch.length)return;const pay=readPay('rn'),made=[];
     ch.forEach(s=>{const p=prod(s.productId);s.end=newEnd(s);s.notified=null;
-      const ns={id:uid(),date:iso(today()),productId:p.id,clientId,providerId:s.providerId||null,price:price[s.id],cost:p.cost,kind:'renovación',method:pay.method,due:pay.due};S.sales.push(ns);made.push(ns)});
-    if(pay.abono)applyPayment(made,Math.min(pay.abono,made.reduce((a,x)=>a+x.price,0)),'efectivo',iso(today()),'abono inicial');
+      const ns={id:uid(),date:rDay(),productId:p.id,clientId,providerId:s.providerId||null,price:price[s.id],cost:p.cost,kind:'renovación',method:pay.method,due:pay.due};S.sales.push(ns);made.push(ns)});
+    if(pay.abono)applyPayment(made,Math.min(pay.abono,made.reduce((a,x)=>a+x.price,0)),'efectivo',rDay(),'abono inicial');
     save();closeModal();toast(ch.length===1?`${prod(ch[0].productId).name} renovado hasta el ${fdate(ch[0].end)}`:`${ch.length} servicios renovados`);render()};
 }
 
