@@ -384,16 +384,16 @@ function seed(){
     {id:uid(),code:'P-1025',productId:'c-full',name:'Sofía Herrera',phone:'573015552047',date:new Date(Date.now()-2*3600e3).toISOString(),status:'pendiente'},
     {id:uid(),code:'P-1026',productId:'yt',name:'Kevin Ospina',phone:'',date:new Date(Date.now()-25*60e3).toISOString(),status:'pendiente'},
   ];
-  return{settings:{store:'Kmi Entretenimiento',phone:'573001234567',warnDays:5,nextOrder:1027,
+  return{settings:{store:'Kmi Entretenimiento',phone:'573186190547',warnDays:5,nextOrder:1027,
     template:'Hola {nombre}, tu {producto} {cuando} ({fecha}). ¿Lo renovamos? Son {precio} por 30 días y pagas por Nequi o Daviplata.'},
     products,providers,offers,clients,subs,sales,orders};
 }
 function load(){try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);migrate();return}}catch(e){}S=seed();save()}
 // datos guardados antes de tener proveedores: se cambia el catálogo y se conservan clientes, ventas y pedidos
-function migrate(){if(S.providers){migrateStock();migratePrices();return}const c=catalog(),ids=new Set(c.products.map(p=>p.id));
+function migrate(){if(S.providers){migrateStock();migratePrices();migratePhone();return}const c=catalog(),ids=new Set(c.products.map(p=>p.id));
   c.products.forEach(p=>{const old=S.products.find(x=>x.id===p.id);if(old&&old.img)p.img=old.img});
   S.products=[...c.products,...S.products.filter(p=>!ids.has(p.id)).map(p=>({...p,active:false}))];
-  S.providers=c.providers;S.offers=c.offers;if(S.settings.store==='CuentasYa')S.settings.store='Kmi Entretenimiento';migrateStock();migratePrices()}
+  S.providers=c.providers;S.offers=c.offers;if(S.settings.store==='CuentasYa')S.settings.store='Kmi Entretenimiento';migrateStock();migratePrices();migratePhone()}
 // productos sin precio ni proveedor pasan de ocultos a agotados
 function migrateStock(){if(S.settings.stockV)return;S.products.forEach(p=>{if(p.type==='combo'||p.stock)return;
   if(p.active)p.stock='ok';else if(['sp','gp','cc'].includes(p.id)){p.active=true;p.stock='agotado'}else p.stock='ok'});S.settings.stockV=1;save()}
@@ -405,6 +405,8 @@ function migratePrices(){if(S.settings.pricesV>=2)return;
     if(o.cost==null){o.cost=cost;o.price=price}
     const p=S.products.find(x=>x.id===pid);if(p&&(!p.providerId||p.providerId==='alex'||p.stock==='agotado')){applyOffer(p,o);p.active=true;p.stock='ok'}});
   S.settings.pricesV=2;save()}
+// número real del vendedor (reemplaza el de ejemplo)
+function migratePhone(){if(S.settings.phone==='573001234567'){S.settings.phone='573186190547';save()}}
 const soldOut=p=>p.stock==='agotado';
 const provName=id=>(S.providers.find(p=>p.id===id)||{name:'Sin proveedor'}).name;
 const offersOf=pid=>S.offers.filter(o=>o.productId===pid);
