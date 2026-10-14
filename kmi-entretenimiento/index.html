@@ -9,6 +9,8 @@
 <meta property="og:description" content="Tus plataformas favoritas, listas en minutos. Pide por WhatsApp.">
 <meta name="theme-color" content="#2E47E6">
 <style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>window.KMI_SUPABASE={url:"https://oelmrrslwrfdwtvmxjdd.supabase.co",key:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lbG1ycnNsd3JmZHd0dm14amRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwMDI0OTksImV4cCI6MjEwNzU3ODQ5OX0.OVeQPY5RMqZmW6psR2QwvEcvR87SWM0TmHfrfXv3r94"};</script>
 </head>
 <body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -184,7 +186,7 @@ td.r,th.r{text-align:right}
 td .m{font-size:13px;color:var(--muted)}
 .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .toolbar input[type=search]{flex:1;min-width:180px}
-input[type=text],input[type=search],input[type=tel],input[type=number],input[type=date],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 11px;width:100%}
+input[type=text],input[type=email],input[type=password],input[type=search],input[type=tel],input[type=number],input[type=date],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 11px;width:100%}
 td input[type=text],td input[type=number]{padding:6px 8px;border-radius:8px}
 td input[type=number]{max-width:110px;text-align:right}
 td input.days{max-width:70px}
@@ -347,11 +349,6 @@ function catalog(){
     {id:'ricardo',name:'Ricardo',phone:''},{id:'alex',name:'Alex',phone:''},
   ];
   const k=1000, offers=[
-    ['edgar','nf',16,19],['edgar','mx',8,12],['edgar','pv',8,12],['edgar','yt',12,15],['edgar','dp',16,19],
-    ['edgar','px',7,12],['edgar','cr',7,12],['edgar','pp',12,16],['edgar','nu',20,25],
-    ['lina','yt',12,15],
-    ['ricardo','yt',10,15],['ricardo','mx',6,12],['ricardo','pv',6,12],['ricardo','gp',28,35],['ricardo','cc',23,28],
-    ['alex','nf',12,19],['alex','yt',10,15],['alex','dp',8,15],['alex','gp',null,null],['alex','cc',null,null],
   ].map(([providerId,productId,cost,price])=>({id:providerId+'-'+productId,providerId,productId,cost:cost==null?null:cost*k,price:price==null?null:price*k}));
   // cada plataforma arranca con el proveedor más barato; sin precio confirmado queda oculta
   products.forEach(p=>{const best=offers.filter(o=>o.productId===p.id&&o.cost!=null).sort((x,y)=>x.cost-y.cost)[0];
@@ -413,7 +410,7 @@ const provName=id=>(S.providers.find(p=>p.id===id)||{name:'Sin proveedor'}).name
 const offersOf=pid=>S.offers.filter(o=>o.productId===pid);
 function applyOffer(p,o){p.providerId=o.providerId;if(o.cost!=null)p.cost=o.cost;if(o.price!=null)p.price=o.price}
 const initials=n=>n.trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S));return true}catch(e){return false}}
+function save(){if(DB){scheduleSync();return true}try{localStorage.setItem(KEY,JSON.stringify(S));return true}catch(e){return false}}
 const prod=id=>S.products.find(p=>p.id===id)||{name:'Producto eliminado',mono:'?',h:0,price:0,cost:0,days:30,items:[]};
 const client=id=>S.clients.find(c=>c.id===id)||{name:'—',phone:''};
 const BRAND={
@@ -448,6 +445,7 @@ function toast(msg){const t=document.createElement('div');t.className='toast';t.
 
 /* ---------- vista tienda ---------- */
 function renderStore(){
+  if(DB&&!dbLoaded)return'<p class="empty" style="padding:72px 0">Cargando catálogo…</p>';
   const act=S.products.filter(p=>p.active);
   const combos=act.filter(p=>p.type==='combo'), singles=act.filter(p=>p.type!=='combo');
   const showC=storeFilter==='todo'||storeFilter==='combos';
@@ -498,7 +496,7 @@ function buyMsg(p,code,name){
   return `Hola, quiero comprar:\n*${pname(p)}*\n${fmt(p.price)} por ${p.days} días\n\nPedido: ${code}${name?`\nNombre: ${name}`:''}`;
 }
 function openBuy(pid){
-  const p=prod(pid), code='P-'+S.settings.nextOrder;
+  const p=prod(pid), code=DB?'P-'+Math.random().toString(36).slice(2,6).toUpperCase():'P-'+S.settings.nextOrder;
   modal(`
     <h3>Tu pedido</h3>
     <div class="sum">${monos(p)}<div class="grow"><b>${esc(p.name)}</b><div class="note">${p.type==='combo'?esc(p.items.map(i=>prod(i).name).join(' + ')):esc(p.desc||'')}</div></div><b class="num">${fmt(p.price)}</b></div>
@@ -517,8 +515,9 @@ function openBuy(pid){
     const name=$('#buyName').value.trim();
     if(!name){e.preventDefault();$('#buyErr').hidden=false;$('#buyName').focus();return}
     let ph=digits($('#buyPhone').value);if(ph.length===10)ph='57'+ph;
-    S.orders.unshift({id:uid(),code,productId:p.id,name,phone:ph,date:new Date().toISOString(),status:'pendiente'});
-    S.settings.nextOrder++;save();updateBadge();
+    const ord={id:uid()+uid(),code,productId:p.id,name,phone:ph,date:new Date().toISOString(),status:'pendiente'};
+    if(DB&&!dbSeller)DB.from('orders').insert(MAP.orders.to(ord)).then(({error})=>{if(error)console.warn('pedido no guardado',error)});
+    else{S.orders.unshift(ord);if(!DB)S.settings.nextOrder++;save();updateBadge()}
     const link=$('#buyGo').href;
     setTimeout(()=>{$('.modal').innerHTML=`
       <div class="ok-ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
@@ -533,6 +532,7 @@ function openBuy(pid){
 /* ---------- panel ---------- */
 const TABS=[['resumen','Resumen'],['pedidos','Pedidos'],['suscripciones','Suscripciones'],['clientes','Clientes'],['productos','Precios y productos'],['proveedores','Proveedores'],['ajustes','Ajustes']];
 function renderPanel(){
+  if(DB&&!dbSeller)return loginView();
   const pend=S.orders.filter(o=>o.status==='pendiente').length;
   const due=S.subs.filter(s=>daysLeft(s.end)<=S.settings.warnDays).length;
   const side=TABS.map(([id,l])=>`<button data-act="tab" data-id="${id}" aria-current="${tab===id}">${l}${id==='pedidos'&&pend?`<span class="badge">${pend}</span>`:''}${id==='suscripciones'&&due?`<span class="chip warn" style="padding:1px 7px">${due}</span>`:''}</button>`).join('');
@@ -703,8 +703,9 @@ function ajustes(){const s=S.settings;return`
     <p class="note">Puedes usar: {nombre} {producto} {cuando} {fecha} {precio}</p>
     <div class="toolbar"><button class="btn primary" data-act="savesettings">Guardar cambios</button></div>
   </div></div>
-  <div class="box"><h2>Datos de la demo</h2><p class="note" style="margin-bottom:10px">Los clientes, ventas y pedidos son de ejemplo y se guardan solo en este navegador.</p>
-    <button class="btn danger" data-act="reset" id="resetBtn">Volver a los datos de ejemplo</button></div>`}
+  ${DB?`<div class="box"><h2>Sesión</h2><p class="note" style="margin-bottom:10px">Conectado como <b>${esc(dbEmail)}</b>. Todo se guarda en la base de datos y se ve igual en todos tus dispositivos.</p>
+    <button class="btn" data-act="logout">Cerrar sesión</button></div>`:`<div class="box"><h2>Datos de la demo</h2><p class="note" style="margin-bottom:10px">Los clientes, ventas y pedidos son de ejemplo y se guardan solo en este navegador.</p>
+    <button class="btn danger" data-act="reset" id="resetBtn">Volver a los datos de ejemplo</button></div>`}`}
 
 /* ---------- ventas ---------- */
 function findOrCreateClient(name,phone){
@@ -802,6 +803,7 @@ document.addEventListener('click',e=>{
   else if(a==='addoffer'){const pid=$('#va-'+id).value,p=prod(pid);S.offers.push({id:id+'-'+pid,providerId:id,productId:pid,cost:null,price:p.price||null});save();render()}
   else if(a==='addprov'){const n=$('#newProv').value.trim();if(!n){toast('Escribe el nombre del proveedor');$('#newProv').focus();return}let pid=n.toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g,'')||uid();if(S.providers.some(v=>v.id===pid))pid+=uid().slice(0,3);S.providers.push({id:pid,name:n,phone:''});save();render();toast(`Proveedor ${n} agregado`)}
   else if(a==='rmcover'){const p=S.products.find(x=>x.id===id);delete p.cover;save();render();toast('Portada quitada')}
+  else if(a==='logout'){dbLogout()}
   else if(a==='rmimg'){const p=S.products.find(x=>x.id===id);delete p.img;save();render();toast('Imagen quitada')}
   else if(a==='addprod'){const n=S.products.filter(p=>p.type!=='combo').length;S.products.push({id:'p'+uid(),name:'Nuevo producto',mono:'NP',cat:'video',desc:'1 pantalla · perfil propio',price:10000,cost:6000,h:(n*47)%360,days:30,active:false,type:'single'});save();render();toast('Producto agregado. Ponle nombre y márcalo como visible.')}
   else if(a==='savesettings'){S.settings.store=$('#stName').value.trim()||'Mi tienda';S.settings.phone=digits($('#stPhone').value);S.settings.warnDays=Math.max(1,Number($('#stWarn').value)||5);S.settings.template=$('#stTpl').value;save();toast('Cambios guardados');render()}
@@ -832,6 +834,10 @@ document.addEventListener('change',e=>{
   im.onload=()=>{const W=isCover?960:192,H=isCover?540:192,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
     const s=Math.max(W/im.width,H/im.height),w=im.width*s,h=im.height*s;x.drawImage(im,(W-w)/2,(H-h)/2,w,h);URL.revokeObjectURL(url);
     const p=S.products.find(q=>q.id===id),prev=isCover?p.cover:p.img;
+    if(DB){const type=isCover?'image/jpeg':'image/png';toast('Subiendo imagen…');c.toBlob(async b=>{const path=`${id}/${isCover?'portada':'logo'}-${Date.now()}.${isCover?'jpg':'png'}`;
+      const {error}=await DB.storage.from('imagenes').upload(path,b,{contentType:type,upsert:true});
+      if(error){toast('No se pudo subir la imagen: '+error.message);return}
+      const u=DB.storage.from('imagenes').getPublicUrl(path).data.publicUrl;if(isCover)p.cover=u;else p.img=u;save();render();toast(`${isCover?'Portada':'Logo'} de ${p.name} actualizado`)},type,.82);return}
     if(isCover)p.cover=c.toDataURL('image/jpeg',.82);else p.img=c.toDataURL('image/png');
     if(!save()){if(isCover){if(prev)p.cover=prev;else delete p.cover}else{if(prev)p.img=prev;else delete p.img}toast('No queda espacio en este navegador. Quita alguna portada y vuelve a intentar.');return}
     render();toast(`${isCover?'Portada':'Logo'} de ${p.name} actualizado`)};
@@ -847,9 +853,82 @@ function render(){
   $('#brandName').textContent=S.settings.store;$('#brandIni').textContent=initials(S.settings.store);
   $('#vStore').setAttribute('aria-pressed',view==='tienda');$('#vPanel').setAttribute('aria-pressed',view==='panel');
   updateBadge();
+  if(view==='panel'&&DB&&!dbSeller&&$('#loginForm'))return; // no borrar lo que la persona está escribiendo
   $('#app').innerHTML=view==='tienda'?renderStore():renderPanel();
   labelTables();
 }
+/* ---------- base de datos (Supabase) — solo en el sitio publicado ---------- */
+const DBCFG=window.KMI_SUPABASE;
+const DB=DBCFG&&window.supabase?window.supabase.createClient(DBCFG.url,DBCFG.key):null;
+let dbSeller=false,dbEmail='',dbLoaded=false,snap={},syncT=null,syncing=false,syncAgain=false;
+const n0=v=>v==null?null:Math.round(Number(v)||0);
+const MAP={
+  providers:{to:v=>({id:v.id,name:v.name,phone:v.phone||''}),from:r=>({id:r.id,name:r.name,phone:r.phone||''})},
+  products:{to:(p,i)=>({id:p.id,type:p.type||'single',name:p.name||'Sin nombre',mono:p.mono||null,cat:p.cat||'video',descr:p.desc||'',hue:Math.round(p.h??220),price:n0(p.price)||0,cost:n0(p.cost)||0,days:Math.max(1,n0(p.days)||30),active:!!p.active,stock:p.stock==='agotado'?'agotado':'ok',provider_id:p.providerId||null,items:p.items||[],badge:p.badge||null,cover_url:p.cover||null,logo_url:p.img||null,sort:i}),
+    from:r=>({id:r.id,type:r.type,name:r.name,mono:r.mono,cat:r.cat,desc:r.descr,h:r.hue,price:r.price,cost:r.cost??0,days:r.days,active:r.active??true,stock:r.stock,providerId:r.provider_id??null,items:r.items||[],badge:r.badge||undefined,cover:r.cover_url||undefined,img:r.logo_url||undefined})},
+  offers:{to:o=>({id:o.id,provider_id:o.providerId,product_id:o.productId,cost:n0(o.cost),price:n0(o.price)}),from:r=>({id:r.id,providerId:r.provider_id,productId:r.product_id,cost:r.cost,price:r.price})},
+  clients:{to:c=>({id:c.id,name:c.name,phone:c.phone||''}),from:r=>({id:r.id,name:r.name,phone:r.phone||''})},
+  subscriptions:{to:s=>({id:s.id,client_id:s.clientId,product_id:s.productId,provider_id:s.providerId||null,start_date:s.start,end_date:s.end,account:s.account||'',notified:s.notified||null}),
+    from:r=>({id:r.id,clientId:r.client_id,productId:r.product_id,providerId:r.provider_id,start:r.start_date,end:r.end_date,account:r.account,notified:r.notified})},
+  sales:{to:s=>({id:s.id,date:s.date,product_id:s.productId,client_id:s.clientId||null,provider_id:s.providerId||null,price:n0(s.price)||0,cost:n0(s.cost)||0,kind:s.kind==='renovación'?'renovación':'nueva'}),
+    from:r=>({id:r.id,date:r.date,productId:r.product_id,clientId:r.client_id,providerId:r.provider_id,price:r.price,cost:r.cost,kind:r.kind})},
+  orders:{to:o=>({id:o.id,code:o.code,product_id:o.productId,name:o.name,phone:o.phone||'',status:o.status,created_at:o.date}),
+    from:r=>({id:r.id,code:r.code,productId:r.product_id,name:r.name,phone:r.phone,status:r.status,date:r.created_at})},
+};
+const ORDER=['providers','products','offers','clients','subscriptions','sales','orders'];
+const LOCAL={providers:'providers',products:'products',offers:'offers',clients:'clients',subscriptions:'subs',sales:'sales',orders:'orders'};
+function emptyState(){return{settings:{store:'Kmi Entretenimiento',phone:'',warnDays:5,template:'',nextOrder:1,stockV:1,pricesV:2},products:[],providers:[],offers:[],clients:[],subs:[],sales:[],orders:[]}}
+function dbTables(){const t={};ORDER.forEach(k=>{t[k]=new Map(S[LOCAL[k]].map((x,i)=>{const r=MAP[k].to(x,i);return[r.id,JSON.stringify(r)]}))});
+  const st=S.settings;t.settings=new Map([['1',JSON.stringify({id:1,store:st.store,phone:st.phone,warn_days:st.warnDays,template:st.template})]]);return t}
+function scheduleSync(){clearTimeout(syncT);syncT=setTimeout(sync,500)}
+async function sync(){syncT=null;if(!dbSeller)return;if(syncing){syncAgain=true;return}syncing=true;
+  try{const cur=dbTables();
+    for(const k of [...ORDER,'settings']){const prev=snap[k]||new Map(),up=[];cur[k].forEach((js,id)=>{if(prev.get(id)!==js)up.push(JSON.parse(js))});
+      if(up.length){const {error}=await DB.from(k).upsert(up);if(error)throw error}}
+    for(const k of [...ORDER].reverse()){const prev=snap[k]||new Map(),gone=[...prev.keys()].filter(id=>!cur[k].has(id));
+      if(gone.length){const {error}=await DB.from(k).delete().in('id',gone);if(error)throw error}}
+    snap=cur}
+  catch(e){console.error(e);toast('No se pudo guardar en la base de datos: '+(e.message||e))}
+  finally{syncing=false;if(syncAgain){syncAgain=false;scheduleSync()}}}
+window.addEventListener('beforeunload',e=>{if(DB&&dbSeller&&(syncT||syncing)){e.preventDefault();e.returnValue=''}});
+async function loadPublic(){const [c,i]=await Promise.all([DB.from('catalogo').select('*').order('sort'),DB.from('tienda_info').select('*')]);
+  if(c.error)throw c.error;S.products=c.data.map(MAP.products.from);if(i.data&&i.data[0]){S.settings.store=i.data[0].store;S.settings.phone=i.data[0].phone}dbLoaded=true}
+async function enterSeller(){const a=await DB.from('admins').select('email');
+  if(a.error||!a.data.length){await DB.auth.signOut();toast('Ese correo no tiene permiso de vendedor.');render();return false}
+  const q=t=>DB.from(t).select('*');
+  const r=await Promise.all([q('providers').order('name'),q('products').order('sort'),q('offers'),q('clients').order('created_at'),q('subscriptions'),q('sales').order('date'),q('orders').order('created_at',{ascending:false}),q('settings').eq('id',1)]);
+  const bad=r.find(x=>x.error);if(bad){toast('No se pudieron cargar tus datos: '+bad.error.message);return false}
+  const [pv,pr,of,cl,su,sa,or,st]=r.map(x=>x.data);const set=st[0]||{};
+  S={settings:{store:set.store||'Kmi Entretenimiento',phone:set.phone||'',warnDays:set.warn_days||5,template:set.template||'',nextOrder:1,stockV:1,pricesV:2},
+    providers:pv.map(MAP.providers.from),products:pr.map(MAP.products.from),offers:of.map(MAP.offers.from),clients:cl.map(MAP.clients.from),
+    subs:su.map(MAP.subscriptions.from),sales:sa.map(MAP.sales.from),orders:or.map(MAP.orders.from)};
+  dbEmail=a.data[0].email;dbSeller=true;dbLoaded=true;snap=dbTables();render();return true}
+// los pedidos nuevos de la tienda aparecen solos en el panel
+async function refreshOrders(){if(!dbSeller||syncing||syncT)return;const {data,error}=await DB.from('orders').select('*').order('created_at',{ascending:false}).limit(200);if(error||!data)return;
+  const have=new Set(S.orders.map(o=>o.id));const nuevos=data.filter(r=>!have.has(r.id)).map(MAP.orders.from);if(!nuevos.length)return;
+  S.orders=[...nuevos,...S.orders].sort((a,b)=>String(b.date).localeCompare(String(a.date)));nuevos.forEach(o=>snap.orders.set(o.id,JSON.stringify(MAP.orders.to(o))));
+  updateBadge();if(view==='panel'&&!document.querySelector('.ov')&&!document.activeElement.matches('input,textarea,select'))render();toast(nuevos.length===1?`Nuevo pedido ${nuevos[0].code}`:`${nuevos.length} pedidos nuevos`)}
+setInterval(refreshOrders,45000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshOrders()});
+async function dbLogout(){if(syncT||syncing){clearTimeout(syncT);await sync()}await DB.auth.signOut();dbSeller=false;dbEmail='';S=emptyState();snap={};view='tienda';location.hash='';
+  try{await loadPublic()}catch(e){}render();toast('Sesión cerrada')}
+async function dbStart(){
+  try{await loadPublic()}catch(e){console.error(e);$('#app').innerHTML='<div class="box" style="margin-top:24px"><p class="empty">No pudimos cargar el catálogo. Revisa tu conexión y recarga la página.</p></div>';return}
+  render();const {data}=await DB.auth.getSession();if(data.session)await enterSeller()}
+function loginView(){return`<div class="panel" style="grid-template-columns:minmax(0,1fr)"><div class="main" style="max-width:420px;margin-inline:auto;width:100%">
+  <div class="box"><h2>Entrar al panel</h2><form class="form" id="loginForm" novalidate>
+    <label for="lgEmail">Correo<input type="email" id="lgEmail" autocomplete="username" required></label>
+    <label for="lgPass">Contraseña<input type="password" id="lgPass" autocomplete="current-password" required></label>
+    <p class="err" id="lgErr" hidden></p>
+    <button class="btn primary" type="submit" id="lgBtn">Entrar</button>
+    <p class="note">Solo para el vendedor. Tus clientes no necesitan cuenta.</p></form></div></div></div>`}
+document.addEventListener('submit',async e=>{if(e.target.id!=='loginForm')return;e.preventDefault();
+  const em=$('#lgEmail').value.trim(),pw=$('#lgPass').value,err=$('#lgErr'),b=$('#lgBtn');err.hidden=true;
+  if(!em||!pw){err.textContent='Escribe tu correo y tu contraseña.';err.hidden=false;return}
+  b.disabled=true;b.textContent='Entrando…';
+  const {error}=await DB.auth.signInWithPassword({email:em,password:pw});
+  if(error){err.textContent=/invalid/i.test(error.message)?'Correo o contraseña incorrectos.':'No se pudo entrar: '+error.message;err.hidden=false;b.disabled=false;b.textContent='Entrar';return}
+  if(!await enterSeller()){b.disabled=false;b.textContent='Entrar'}});
 /* ---------- modo claro / oscuro ---------- */
 const TKEY='kmi-tema';
 const isDark=()=>{const t=document.documentElement.dataset.theme;return t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches};
@@ -858,7 +937,7 @@ try{const t=localStorage.getItem(TKEY);if(t)document.documentElement.dataset.the
 $('#themeBtn').addEventListener('click',()=>{const t=isDark()?'light':'dark';document.documentElement.dataset.theme=t;try{localStorage.setItem(TKEY,t)}catch(e){}paintTheme()});
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',paintTheme);
 paintTheme();
-load();
+if(DB)S=emptyState();else load();
 // en el sitio público (Vercel) el panel queda escondido para los clientes; se abre con #panel una vez en tu dispositivo
 const PUBLIC_SITE=document.documentElement.dataset.site==='public';
 function seller(){if(!PUBLIC_SITE)return true;try{return localStorage.getItem('kmi-vendedor')==='1'}catch(e){return location.hash==='#panel'}}
@@ -867,8 +946,10 @@ function applySeller(){if(PUBLIC_SITE&&location.hash==='#panel'){try{localStorag
   document.querySelectorAll('.seller').forEach(el=>el.hidden=!seller());if(!seller())view='tienda'}
 if(location.hash==='#panel')view='panel';
 applySeller();
+if(DB)document.querySelectorAll('.demo-tag').forEach(el=>el.hidden=true);
 window.addEventListener('hashchange',()=>{const v=location.hash==='#panel'?'panel':'tienda';view=v;applySeller();render()});
 render();
+if(DB)dbStart();
 </script>
 </body>
 </html>
