@@ -16,4 +16,6 @@ La llave que está en `index.html` es la `anon` (pública por diseño). Nunca po
 
 ## Panel del vendedor
 
-En el sitio público el botón del panel está escondido. Para verlo, abre el link con `#panel` al final (por ejemplo `https://tu-sitio.vercel.app/#panel`) e inicia sesión. Queda recordado en ese navegador; `#salir` lo vuelve a esconder.
+Los clientes no ven ningún botón del panel. Para entrar, abre el link con `#panel` al final (por ejemplo `https://tu-sitio.vercel.app/#panel`) e inicia sesión con tu usuario. Con la sesión abierta aparece el botón "Panel vendedor"; al cerrar sesión desaparece.
+
+El usuario `admin` es la cuenta `admin@kmi.local` en Supabase → Authentication → Users (ahí se cambia la contraseña).
