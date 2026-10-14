@@ -388,6 +388,86 @@ td input.days{max-width:70px}
   .fab{transition:transform .2s ease}
   .fab:hover{transform:translateY(-2px)}
 }
+
+/* ---------- TIENDA "TAQUILLA": cartelera de cine, boletas y un solo color de acción ---------- */
+body.tq{
+  --bg:#F4EFE6; --surface:#FFFDF8; --surface-2:#ECE5D7; --ink:#17141F; --muted:#665F53; --line:#DCD2C0;
+  --accent:#4F3BF2; --accent-ink:#FFFFFF; --accent-hov:#3F2CD9; --gold:#9A6B1F; --stub:#F7F1E4;
+  --wa:#128C4A; --wa-ink:#FFFFFF; --good:#0F7A45; --bad:#C62F2F;
+  --marquee:'Bebas Neue',var(--display);
+  background:var(--bg);color-scheme:light}
+body.tq.dark-on{
+  --bg:#0B0A0F; --surface:#15131B; --surface-2:#1F1C27; --ink:#F3EEE4; --muted:#A49E92; --line:#2C2836;
+  --accent:#7B6CFF; --accent-ink:#0B0A0F; --accent-hov:#9487FF; --gold:#D9B25F; --stub:#1A1722;
+  --wa:#2DC76A; --wa-ink:#06210F; --good:#3DD08A; --bad:#FF6F6F;
+  color-scheme:dark}
+body.tq .top{background:color-mix(in srgb,var(--bg) 90%,transparent);border-bottom-color:var(--line)}
+
+/* cartelera */
+body.tq .hero{padding-block:44px 20px;align-items:center}
+.billing{display:inline-flex;align-items:center;gap:10px;font:700 12px/1 var(--body);letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:14px}
+.billing::before,.billing::after{content:"";width:22px;height:1px;background:currentColor;opacity:.6}
+body.tq .hero h1{font-family:var(--marquee);font-weight:400;font-size:clamp(48px,8.4vw,92px);letter-spacing:.005em;line-height:.92;text-transform:uppercase}
+body.tq .hero h1 em{color:var(--accent);display:block}
+body.tq .hero .lead{font-size:17px}
+body.tq .trust li{background:var(--surface);border-color:var(--line);border-radius:12px}
+body.tq .trust svg{color:var(--gold)}
+
+/* marquesina con las plataformas reales: lo único que se mueve solo */
+.mq{position:relative;overflow:hidden;margin:6px -16px 26px;padding:14px 0;border-block:1px solid var(--line);background:var(--surface);
+  -webkit-mask:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+.mq-track{display:flex;gap:12px;width:max-content;animation:mq 55s linear infinite}
+.mq:hover .mq-track{animation-play-state:paused}
+.mq-item{width:150px;flex:none}
+.mq-item .poster{border-radius:8px;font-size:18px}
+.mq-item .tag{display:none}
+@keyframes mq{to{transform:translateX(-50%)}}
+
+/* filtros y títulos */
+body.tq .filters button{background:transparent;border-color:var(--line);border-radius:8px;font-weight:600;transition:background-color .18s,color .18s,border-color .18s}
+body.tq .filters button:hover{border-color:var(--ink)}
+body.tq .filters button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+body.tq .sec-title{border-bottom:1px solid var(--line);padding-bottom:8px}
+body.tq .sec-title h2{font-family:var(--marquee);font-weight:400;font-size:34px;letter-spacing:.01em;text-transform:uppercase;line-height:1}
+body.tq .sec-title span{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+
+/* cada producto es una boleta: póster arriba, perforación, talón con precio */
+body.tq .card,body.tq .combo{background:var(--surface);border:1px solid var(--line);border-radius:14px;transition:transform .2s ease-out,box-shadow .2s ease-out}
+body.tq .card:hover,body.tq .combo:hover{transform:translateY(-3px);box-shadow:0 14px 30px -16px rgb(0 0 0 / .35)}
+.perf{position:relative;height:0;border-top:2px dashed color-mix(in srgb,var(--muted) 45%,transparent);margin:2px -16px}
+.combo .perf{margin-inline:-20px}
+.perf::before,.perf::after{content:"";position:absolute;top:-10px;width:18px;height:18px;border-radius:50%;background:var(--bg);border:1px solid var(--line)}
+.perf::before{left:-10px;clip-path:inset(0 0 0 50%)}
+.perf::after{right:-10px;clip-path:inset(0 50% 0 0)}
+body.tq .poster .tag{background:var(--stub);color:var(--gold);border:1px solid color-mix(in srgb,var(--gold) 40%,transparent);font-weight:700}
+body.tq .price strong{font-family:var(--marquee);font-weight:400;font-size:38px;letter-spacing:.01em;line-height:1}
+body.tq .card .price strong{font-size:34px}
+body.tq .card .price strong.na{font-family:var(--body);font-size:18px}
+body.tq .combo.feat{border:2px solid var(--accent)}
+body.tq .ribbon{background:var(--gold);color:var(--bg);letter-spacing:.06em;text-transform:uppercase;font-size:11px}
+body.tq .save{color:var(--good)}
+
+/* botones: color sólido, sin brillos */
+body.tq .btn{transition:background-color .18s,border-color .18s,transform .18s}
+body.tq .card .btn.block,body.tq .combo .btn.block,body.tq .btn.primary{background:var(--accent);border-color:transparent;color:var(--accent-ink);font-weight:700;min-height:44px}
+body.tq .card .btn.block:hover,body.tq .combo .btn.block:hover,body.tq .btn.primary:hover{background:var(--accent-hov)}
+body.tq .card .btn.block:active,body.tq .combo .btn.block:active{transform:scale(.98)}
+body.tq .card.out .btn.block{background:transparent;border-color:var(--line);color:var(--ink);font-weight:500}
+
+body.tq .steps b.n{font-family:var(--marquee);font-size:30px;line-height:1;color:var(--gold);padding-top:0}
+body.tq .fab{box-shadow:0 10px 26px rgb(0 0 0 / .25)}
+
+@media (prefers-reduced-motion:reduce){
+  .mq-track{animation:none}
+  .mq{overflow-x:auto;-webkit-mask:none;mask:none}
+  body.tq .card:hover,body.tq .combo:hover{transform:none}
+}
+@media (max-width:680px){
+  body.tq .hero{padding-block:30px 12px}
+  .mq-item{width:120px}
+  .mq-item .poster{font-size:15px}
+}
+@media (hover:none){body.tq .card:hover,body.tq .combo:hover{transform:none;box-shadow:none}}
 </style>
 
 <header class="top">
@@ -531,6 +611,7 @@ function renderStore(){
   return `
   <section class="hero">
     <div>
+      <span class="billing">En cartelera hoy</span>
       <h1>Tus plataformas favoritas, <em>listas en minutos.</em></h1>
       <p class="lead">Escoge una cuenta o arma tu combo. Te llevamos a WhatsApp con tu pedido escrito y te entregamos el acceso ahí mismo.</p>
     </div>
@@ -540,11 +621,14 @@ function renderStore(){
       <li>${check}<div><b>Paga como quieras</b><span>Nequi, Daviplata, Bancolombia o efectivo.</span></div></li>
     </ul>
   </section>
+  ${(()=>{const mq=singles.filter(p=>BRAND[p.id]&&BRAND[p.id].lg);if(mq.length<4)return'';const row=[...mq,...mq];
+    return`<div class="mq" aria-label="Plataformas disponibles"><div class="mq-track">${row.map((p,i)=>`<div class="mq-item"${i>=mq.length?' aria-hidden="true"':''}>${posterOf(p)}</div>`).join('')}</div></div>`})()}
   <div class="filters" role="group" aria-label="Filtrar">${f('todo','Todo')}${combos.length?f('combos','Combos'):''}${[['video','Películas y series'],['musica','Música y YouTube'],['apps','Apps']].filter(([c])=>singles.some(p=>p.cat===c)).map(([c,l])=>f(c,l)).join('')}</div>
   ${showC&&combos.length?`<div class="sec-title"><h2>Combos</h2><span>Más pantallas, menos pago</span></div>
   <div class="combos">${combos.map(p=>{const items=p.items.map(prod);const sum=items.reduce((a,x)=>a+x.price,0);const sv=sum-p.price;return`
     <article class="combo ${p.badge?'feat':''}">${p.badge?`<span class="ribbon">${esc(p.badge)}</span>`:''}
       ${posterOf(p)}
+      <div class="perf" aria-hidden="true"></div>
       <h3>${esc(p.name)}</h3>
       <p class="inc">${items.map(x=>esc(x.name)).join(' + ')}</p>
       <div class="price"><strong>${fmt(p.price)}</strong><span>/ ${p.days} días</span></div>
@@ -555,6 +639,7 @@ function renderStore(){
   <div class="grid">${sing.map(p=>`
     <article class="card${soldOut(p)?' out':''}">
       <div class="pwrap">${posterOf(p)}${soldOut(p)?'<span class="sold">Agotado</span>':''}</div>
+      <div class="perf" aria-hidden="true"></div>
       <div><h3>${esc(p.name)}</h3><p class="desc">${soldOut(p)?'No hay cupos por ahora':esc(p.desc||'')}</p></div>
       ${soldOut(p)?`<div class="price"><strong class="na">Agotado</strong></div>
       <a class="btn block" target="_blank" rel="noopener" href="${esc(waLink(S.settings.phone,`Hola, ¿cuándo vuelven a tener ${p.name}? Avísenme cuando haya.`))}">${WA_SVG} Avísame</a>`:`<div class="price"><strong>${fmt(p.price)}</strong><span>/ ${p.days} días</span></div>
@@ -1118,6 +1203,7 @@ function render(){
   $('#vStore').setAttribute('aria-pressed',view==='tienda');$('#vPanel').setAttribute('aria-pressed',view==='panel');
   updateBadge();
   if(view==='panel'&&DB&&!dbSeller&&$('#loginForm'))return; // no borrar lo que la persona está escribiendo
+  document.body.classList.toggle('tq',view==='tienda');
   $('#app').innerHTML=view==='tienda'?renderStore():renderPanel();
   labelTables();
 }
