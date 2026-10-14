@@ -253,10 +253,15 @@ td input.days{max-width:70px}
 .promo p b{color:#fff}
 .promo-btn{background:#FFC72C;color:#141414;border-color:transparent;font-weight:700;margin-top:4px}
 .promo-btn:hover{background:#ffd457;border-color:transparent}
-.promo-img{width:100%;height:100%;object-fit:cover;object-position:35% 45%;min-height:240px;display:block}
+.promo-pics{display:grid;grid-template-columns:1fr 1fr;gap:3px;background:#141414}
+.promo-pics figure{position:relative;margin:0;aspect-ratio:1/1;overflow:hidden}
+.promo-pics img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s}
+.promo-pics figure:hover img{transform:scale(1.05)}
+.promo-pics figcaption{position:absolute;left:0;right:0;bottom:0;padding:18px 10px 8px;font-size:12px;font-weight:700;color:#fff;background:linear-gradient(transparent,rgb(0 0 0 / .75))}
 .promo-mini{display:flex;align-items:center;gap:10px;background:#141414;color:#fff;border-radius:12px;padding:10px 12px;text-decoration:none;font-size:14px}
 .promo-mini b{color:#FFC72C}
-@media (max-width:680px){.promo{grid-template-columns:1fr}.promo-img{order:-1;min-height:0;max-height:200px}.promo-txt{padding:22px}.promo h2{font-size:24px}}
+@media (max-width:680px){.promo{grid-template-columns:1fr}.promo-pics{order:-1}.promo-pics figure{aspect-ratio:4/3}.promo-txt{padding:20px}.promo h2{font-size:23px}.promo-btn{width:100%}}
+@media (min-width:681px) and (max-width:900px){.promo{grid-template-columns:1fr 1fr}}
 @media (max-width:520px){.rn{flex-wrap:wrap}.rn input[type=number]{margin-left:30px;width:140px}}
 .ok-ico{width:48px;height:48px;border-radius:50%;background:color-mix(in srgb,var(--good) 15%,transparent);color:var(--good);display:grid;place-items:center}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:500;z-index:60;max-width:calc(100% - 32px)}
@@ -563,7 +568,7 @@ function renderStore(){
       <p>Burgers en pan brioche, perros, salchipapas y picadas en <b>Barrancabermeja</b>. Pide en línea con domicilio, de martes a domingo desde las 5:00 p. m.</p>
       <a class="btn promo-btn" href="https://kmi-burger.vercel.app/" target="_blank" rel="noopener">Pedir en KMI Burger →</a>
     </div>
-    <img class="promo-img" src="promo/kmi-burger.jpg" alt="Hamburguesa con papas de KMI Burger" loading="lazy" width="496" height="504">
+    <div class="promo-pics">${[['campesina','Campesina'],['burger-pollo','Burger de pollo'],['salchipapa','Salchipapa'],['picada-x4','Picada x4']].map(([f,l])=>`<figure><img src="promo/${f}.webp" alt="${l} de KMI Burger" loading="lazy" width="480" height="480"><figcaption>${l}</figcaption></figure>`).join('')}</div>
   </section>
   <section class="steps" aria-label="Cómo comprar">
     <div><b class="n">01</b><div><h3>Escoge tu cuenta o combo</h3><p>Toca “Lo quiero” y escribe tu nombre.</p></div></div>
