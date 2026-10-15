@@ -1153,7 +1153,9 @@ function openEditSale(id){
   const s=S.sales.find(x=>x.id===id);if(!s)return;let armed=false;
   modal(`<h3>Editar venta</h3><p class="note">${esc(client(s.clientId).name)} · registrada el ${fdl(s.date)}</p>
     <div class="form">
-      <label>Producto<select id="esProd">${S.products.map(p=>`<option value="${p.id}" ${p.id===s.productId?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>
+      <div class="row2"><label>Producto<select id="esProd">${S.products.map(p=>`<option value="${p.id}" ${p.id===s.productId?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>
+      <label>Proveedor<select id="esProv"></select></label></div>
+      <label id="esSubWrap" style="display:flex;gap:8px;align-items:center;cursor:pointer" hidden><input type="checkbox" id="esSub" checked> <span>Cambiar también el proveedor en su suscripción</span></label>
       <div class="row2"><label>Fecha<input type="date" id="esDate" value="${s.date}"></label>
       <label>Tipo<select id="esKind"><option value="nueva" ${s.kind!=='renovación'?'selected':''}>Nueva</option><option value="renovación" ${s.kind==='renovación'?'selected':''}>Renovación</option></select></label></div>
       <div class="row2"><label>Forma de pago<select id="esMet">${METHODS.map(([v,l])=>`<option value="${v}" ${(s.method||'efectivo')===v?'selected':''}>${l}</option>`).join('')}</select></label>
@@ -1164,8 +1166,20 @@ function openEditSale(id){
     </div>
     <div class="acts"><button class="btn danger" id="esDel" style="margin-right:auto">Borrar venta</button><button class="btn" data-act="close">Volver</button><button class="btn primary" id="esSave">Guardar</button></div>`);
   const info=()=>{const g=(Number($('#esPrice').value)||0)-(Number($('#esCost').value)||0);$('#esInfo').innerHTML=`Ganancia: <b style="color:${g<0?'var(--bad)':'var(--good)'}">${fmt(g)}</b>`};
-  ['#esPrice','#esCost'].forEach(x=>$(x).addEventListener('input',info));info();
-  $('#esSave').onclick=()=>{s.productId=$('#esProd').value;s.date=$('#esDate').value||s.date;s.kind=$('#esKind').value;s.method=$('#esMet').value;s.due=s.method==='credito'?($('#esDue').value||null):null;if(s.method!=='credito')S.payments=S.payments.filter(x=>x.saleId!==s.id);s.price=Math.max(0,Number($('#esPrice').value)||0);s.cost=Math.max(0,Number($('#esCost').value)||0);save();closeModal();toast('Venta actualizada');render()};
+  ['#esPrice','#esCost'].forEach(x=>$(x).addEventListener('input',info));
+  // proveedor: al cambiarlo, el costo pasa a lo que cobra ese proveedor y la ganancia se recalcula
+  const provOpts=()=>{const pid=$('#esProd').value,os=offersOf(pid);const ids=[...new Set([pid===s.productId?s.providerId:null,...os.map(o=>o.providerId)].filter(Boolean))];
+    const cur=$('#esProv').value||(pid===s.productId?s.providerId:'');
+    return`<option value="">Sin proveedor</option>`+ids.map(v=>{const o=os.find(x=>x.providerId===v);return`<option value="${esc(v)}" ${v===cur?'selected':''}>${esc(provName(v))}${o&&o.cost!=null?' · te cobra '+fmt(o.cost):''}</option>`}).join('')};
+  const linkedSub=()=>S.subs.find(x=>x.clientId===s.clientId&&x.productId===s.productId&&(x.providerId||null)===(s.providerId||null));
+  const subToggle=()=>{$('#esSubWrap').hidden=!(linkedSub()&&($('#esProv').value||null)!==(s.providerId||null))};
+  $('#esProv').innerHTML=provOpts();
+  $('#esProv').addEventListener('change',()=>{const o=offersOf($('#esProd').value).find(x=>x.providerId===$('#esProv').value);if(o&&o.cost!=null)$('#esCost').value=o.cost;info();subToggle()});
+  $('#esProd').addEventListener('change',()=>{$('#esProv').innerHTML=provOpts();$('#esProv').dispatchEvent(new Event('change'))});
+  info();
+  $('#esSave').onclick=()=>{const nv=$('#esProv').value||null,sub=linkedSub();
+    if(sub&&nv!==(s.providerId||null)&&$('#esSub').checked)sub.providerId=nv;
+    s.providerId=nv;s.productId=$('#esProd').value;s.date=$('#esDate').value||s.date;s.kind=$('#esKind').value;s.method=$('#esMet').value;s.due=s.method==='credito'?($('#esDue').value||null):null;if(s.method!=='credito')S.payments=S.payments.filter(x=>x.saleId!==s.id);s.price=Math.max(0,Number($('#esPrice').value)||0);s.cost=Math.max(0,Number($('#esCost').value)||0);save();closeModal();toast('Venta actualizada');render()};
   $('#esDel').onclick=e=>{if(!armed){armed=true;e.target.textContent='¿Seguro? Toca otra vez';setTimeout(()=>{armed=false;const b=$('#esDel');b&&(b.textContent='Borrar venta')},4000);return}
     S.sales=S.sales.filter(x=>x!==s);S.payments=S.payments.filter(x=>x.saleId!==s.id);save();closeModal();toast('Venta borrada');render()};
 }
