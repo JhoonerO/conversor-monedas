@@ -2,8 +2,10 @@
 
 Control remoto estilo **Frutiger Aero** para Android, hecho con React + Vite + Capacitor.
 
-- **Infrarrojo** (celulares Xiaomi/Redmi/Poco con emisor IR): encender, volumen, silencio, canales, fuente y números del TV.
-- **WiFi** (Google TV / Android TV con depuración activada): flechas, OK, atrás, inicio, touchpad, teclado y abrir Netflix, YouTube, Prime Video y Disney+.
+- **WiFi con código** (protocolo de Google TV): se empareja escribiendo el código que muestra la pantalla.
+  Maneja el TV y el decodificador sin apuntar: botones, touchpad, teclado y apps.
+- **Infrarrojo de respaldo** (celulares Xiaomi/Redmi/Poco con emisor IR).
+- Dos aparatos con cambio rápido: **TV** (tema verde) y **Decodificador** (tema azul).
 
 ## Pantallas
 
@@ -32,7 +34,8 @@ control-aero/
 ├── scripts/generar-perfiles-ir.mjs
 └── android/app/src/main/java/co/tkdigital/controlaero/
     ├── InfrarrojoPlugin.java   # usa el emisor IR del celular
-    └── GoogleTvPlugin.java     # ADB por WiFi hacia el Google TV
+    ├── GoogleTvPlugin.java     # puente con JavaScript y búsqueda en la red
+    └── AndroidTvRemoto.java    # protocolo de Google TV: emparejar con código y mandar teclas
 ```
 
 ## Comandos (PowerShell)
@@ -49,9 +52,8 @@ GitHub → pestaña **Actions** → **APK Control Aero** → **Artifacts** → `
 
 ## Primera configuración
 
-1. **Infrarrojo:** Ajustes → *Buscar mi control*. Apunta al TV y prueba perfiles hasta que el TV se silencie.
-2. **Google TV:** activa *Opciones para desarrolladores* → *Depuración por USB* en el Google TV,
-   escribe su IP en Ajustes → *Conectar* y acepta el permiso en la pantalla del TV.
+1. **Infrarrojo (opcional):** Ajustes → *Buscar código infrarrojo del TV*.
+2. **WiFi:** Ajustes → *Buscar en mi red* → toca *Es el TV* o *Es el Deco* y escribe el código que sale en pantalla.
 
 Los perfiles infrarrojos vienen de [Flipper-IRDB](https://github.com/Lucaslhm/Flipper-IRDB).
 No hay códigos publicados de Kalley, por eso el asistente prueba marcas con controles parecidos.

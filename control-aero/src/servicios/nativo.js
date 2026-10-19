@@ -17,15 +17,21 @@ export const Infrarrojo = esApp
 export const GoogleTv = esApp
   ? registerPlugin('GoogleTv')
   : {
-      conectar: async () => {
-        await demora(600)
-        throw new Error('Solo funciona en la app instalada en el celular')
-      },
+      // Simulación para la vista previa en el navegador
+      conectar: () => demora(500),
       enviar: async () => {},
       desconectar: async () => {},
+      emparejar: () => demora(800),
+      confirmarCodigo: () => demora(500),
+      cancelarEmparejamiento: async () => {},
       buscar: async () => {
         await demora(1500)
-        return { aparatos: [] }
+        return {
+          aparatos: [
+            { host: '192.168.1.11', nombre: 'Google_TV' },
+            { host: '192.168.1.6', nombre: 'TV de Habitación principal' },
+          ],
+        }
       },
     }
 

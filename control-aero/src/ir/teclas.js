@@ -42,11 +42,11 @@ export const ALTERNATIVAS_IR = {
   playPause: ['play', 'pause'],
 }
 
-// Aplicaciones del Google TV (se abren por WiFi; por infrarrojo solo si el
+// Aplicaciones (por WiFi se abren con su enlace; por infrarrojo solo si el
 // control original trae el botón)
 export const APPS = [
-  { id: 'netflix', nombre: 'Netflix', paquete: 'com.netflix.ninja' },
-  { id: 'youtube', nombre: 'YouTube', paquete: 'com.google.android.youtube.tv' },
-  { id: 'prime', nombre: 'Prime Video', paquete: 'com.amazon.amazonvideo.livingroom' },
-  { id: 'disney', nombre: 'Disney+', paquete: 'com.disney.disneyplus' },
+  { id: 'netflix', nombre: 'Netflix', enlace: 'https://www.netflix.com/title' },
+  { id: 'youtube', nombre: 'YouTube', enlace: 'https://www.youtube.com' },
+  { id: 'prime', nombre: 'Prime Video', enlace: 'https://app.primevideo.com' },
+  { id: 'disney', nombre: 'Disney+', enlace: 'https://www.disneyplus.com' },
 ]

@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react'
 import { Boton } from './Boton.jsx'
 import { Icono } from './Iconos.jsx'
-import { escribir, presionar, useControl } from '../servicios/control.js'
+import { escribir, presionar, useControl, dispositivoActivo } from '../servicios/control.js'
 
 // Lo que escribes aquí aparece en el TV letra por letra (en vivo)
 export function PantallaTeclado() {
-  const { googleTv } = useControl()
+  const { wifi } = useControl()
+  const activo = dispositivoActivo()
   const [texto, setTexto] = useState('')
   const enviado = useRef('')
 
@@ -35,10 +36,10 @@ export function PantallaTeclado() {
         </div>
       </div>
 
-      {googleTv !== 'conectado' && (
+      {wifi[activo.id] !== 'conectado' && (
         <div className="nota vidrio-panel">
           <Icono nombre="wifi" tam={20} />
-          El teclado viaja por WiFi: conecta el decodificador en <b>Ajustes</b>.
+          El teclado viaja por WiFi: empareja el {activo.nombre.toLowerCase()} en <b>Ajustes</b>.
         </div>
       )}
 

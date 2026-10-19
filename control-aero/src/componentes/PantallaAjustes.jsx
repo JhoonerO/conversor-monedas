@@ -1,15 +1,19 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Boton } from './Boton.jsx'
 import { Icono } from './Iconos.jsx'
 import { AsistentePerfil } from './AsistentePerfil.jsx'
 import {
   useControl,
   cambiarAjuste,
-  conectarGoogleTv,
-  desconectarGoogleTv,
   DISPOSITIVOS,
   perfilDe,
   buscarEnRed,
+  empezarEmparejamiento,
+  confirmarCodigo,
+  cancelarEmparejamiento,
+  conectarWifi,
+  olvidarWifi,
 } from '../servicios/control.js'
 import { esApp } from '../servicios/nativo.js'
 
@@ -23,150 +27,180 @@ function Interruptor({ activo, alCambiar, children }) {
   )
 }
 
-function ResultadosBusqueda({ busqueda, alElegir }) {
-  if (busqueda?.estado !== 'listo') return null
-  if (busqueda.aparatos.length === 0) {
-    return (
-      <p className="pista">
-        No apareció nada. Tu decodificador no se anuncia en la red: no acepta emparejarse con código. Usa la conexión
-        manual de abajo (activar depuración una sola vez).
-      </p>
-    )
-  }
-  return busqueda.aparatos.map((a) => (
-    <div key={a.host} className="dispositivo-tarjeta">
-      <span className="muestra azul" />
+const TEXTO_WIFI = { conectado: 'conectado ✓', conectando: 'conectando…', desconectado: 'desconectado' }
+
+function Aparato({ d, control }) {
+  const ip = d.id === 'tv' ? control.ipTv : control.ipDeco
+  const wifi = control.wifi[d.id]
+  const p = perfilDe(d.id)
+  return (
+    <div className="dispositivo-tarjeta">
+      <span className={`muestra ${d.tema}`} />
       <div>
-        <strong>{a.nombre}</strong>
-        <small>
-          {a.host}
-          {a.emparejar ? ' · acepta código en pantalla ✓' : ''}
-          {a.adb ? ' · depuración activa' : ''}
-        </small>
+        <strong>{d.nombre}</strong>
+        <small>WiFi: {ip ? `${TEXTO_WIFI[wifi]} · ${ip}` : 'sin emparejar'}</small>
+        <small>Infrarrojo: {p ? `${p.marca} ${p.modelo}` : 'sin código'}</small>
       </div>
-      {a.adb && (
-        <Boton className="pastilla" accion={() => alElegir(a.host)} etiqueta={`Conectar a ${a.nombre}`}>
-          Usar
+      {ip && wifi === 'desconectado' && (
+        <Boton className="pastilla" accion={() => conectarWifi(d.id)} etiqueta={`Reconectar ${d.nombre}`}>
+          Reconectar
+        </Boton>
+      )}
+      {ip && wifi === 'conectado' && (
+        <Boton className="pastilla" accion={() => olvidarWifi(d.id)} etiqueta={`Olvidar ${d.nombre}`}>
+          Olvidar
         </Boton>
       )}
     </div>
-  ))
+  )
+}
+
+function BotonesEmparejar({ host }) {
+  return (
+    <div className="fila-botones">
+      {DISPOSITIVOS.map((d) => (
+        <Boton
+          key={d.id}
+          className={`pastilla ancha emparejar-${d.tema}`}
+          accion={() => empezarEmparejamiento(d.id, host)}
+          etiqueta={`Emparejar como ${d.nombre}`}
+        >
+          <Icono nombre={d.id === 'tv' ? 'tv' : 'deco'} tam={18} /> Es el {d.corto}
+        </Boton>
+      ))}
+    </div>
+  )
+}
+
+function HojaCodigo({ emparejando }) {
+  const [codigo, setCodigo] = useState('')
+  const d = DISPOSITIVOS.find((x) => x.id === emparejando.dispositivo)
+  const listo = /^[0-9A-F]{6}$/.test(codigo)
+
+  return createPortal(
+    <div className="hoja-fondo">
+      <div className="hoja vidrio-panel" role="dialog" aria-label="Escribir código">
+        <div className="hoja-titulo">
+          <strong>Emparejar {d.nombre.toLowerCase()}</strong>
+          <Boton className="redondo chico" accion={cancelarEmparejamiento} etiqueta="Cancelar">
+            <Icono nombre="cerrar" tam={18} />
+          </Boton>
+        </div>
+        {emparejando.paso === 'iniciando' ? (
+          <p className="pista">Conectando con {emparejando.host}… mira la pantalla.</p>
+        ) : (
+          <>
+            <p className="pista">
+              En la pantalla apareció un <b>código de 6 caracteres</b> (números y letras de la A a la F). Escríbelo
+              aquí:
+            </p>
+            <div className="campo-texto vidrio-panel">
+              <input
+                className="entrada-codigo"
+                value={codigo}
+                onChange={(e) => setCodigo(e.target.value.toUpperCase().replace(/[^0-9A-F]/g, '').slice(0, 6))}
+                onKeyDown={(e) => e.key === 'Enter' && listo && confirmarCodigo(codigo)}
+                placeholder="A1B2C3"
+                autoCapitalize="characters"
+                autoComplete="off"
+                autoFocus
+              />
+            </div>
+            <Boton
+              className="pastilla ancha destacada grande"
+              accion={() => listo && emparejando.paso === 'codigo' && confirmarCodigo(codigo)}
+              etiqueta="Confirmar código"
+            >
+              <Icono nombre="check" tam={22} grosor={2.6} />
+              {emparejando.paso === 'confirmando' ? 'Verificando…' : 'Confirmar'}
+            </Boton>
+          </>
+        )}
+      </div>
+    </div>,
+    document.body,
+  )
 }
 
 export function PantallaAjustes() {
   const control = useControl()
-  const [ip, setIp] = useState(control.ipGoogleTv)
   const [buscador, setBuscador] = useState(false)
-  const conectado = control.googleTv === 'conectado'
-
-  const estadoIr =
-    control.irDisponible === false
-      ? 'Este celular no tiene emisor infrarrojo'
-      : control.irDisponible
-        ? 'Emisor infrarrojo listo ✓'
-        : 'Vista previa: el infrarrojo funciona en la app instalada'
+  const [ipManual, setIpManual] = useState('')
+  const { busqueda } = control
 
   return (
     <div className="pantalla pantalla-ajustes">
       <section className="tarjeta vidrio-panel">
         <h2>
-          <Icono nombre="infrarrojo" tam={22} /> Mis controles
+          <Icono nombre="tv" tam={22} /> Mis aparatos
         </h2>
-        <p className={`estado ${control.irDisponible === false ? 'mal' : 'bien'}`}>{estadoIr}</p>
-        {DISPOSITIVOS.map((d) => {
-          const p = perfilDe(d.id)
-          return (
-            <div key={d.id} className="dispositivo-tarjeta">
-              <span className={`muestra ${d.tema}`} />
-              <div>
-                <strong>{d.nombre}</strong>
-                <small>{p ? `Código ${p.marca} ${p.modelo}` : 'Sin código todavía'}</small>
-              </div>
-            </div>
-          )
-        })}
-        <Boton className="pastilla ancha destacada" accion={() => setBuscador(true)} etiqueta="Buscar el código del TV">
-          <Icono nombre="buscar" tam={20} /> {perfilDe('tv') ? 'Cambiar código del TV' : 'Buscar código del TV'}
-        </Boton>
+        {DISPOSITIVOS.map((d) => (
+          <Aparato key={d.id} d={d} control={control} />
+        ))}
         <Interruptor activo={control.volumenAlTv} alCambiar={(v) => cambiarAjuste('volumenAlTv', v)}>
           El volumen y el silencio siempre van al TV
         </Interruptor>
-        <p className="pista">Cambia entre TV y Deco con los botones de arriba a la derecha.</p>
       </section>
 
       <section className="tarjeta vidrio-panel">
         <h2>
-          <Icono nombre="wifi" tam={22} /> Decodificador por WiFi (opcional)
+          <Icono nombre="wifi" tam={22} /> Emparejar por WiFi
         </h2>
         <p className="pista">
-          No hace falta para los botones ni el touchpad. Sirve para el <b>teclado</b> y para abrir Netflix,
-          YouTube y demás apps directo.
-        </p>
-        <p className={`estado ${conectado ? 'bien' : ''}`}>
-          {conectado ? 'Conectado ✓' : control.googleTv === 'conectando' ? 'Conectando… mira el TV' : 'Desconectado'}
+          La mejor forma: funciona sin apuntar, con touchpad, teclado y apps. El celular y los aparatos deben estar en
+          el mismo WiFi.
         </p>
         <Boton
-          className="pastilla ancha"
-          accion={() => control.busqueda?.estado !== 'buscando' && buscarEnRed()}
+          className="pastilla ancha destacada"
+          accion={() => busqueda?.estado !== 'buscando' && buscarEnRed()}
           etiqueta="Buscar en mi red"
         >
           <Icono nombre="buscar" tam={20} />
-          {control.busqueda?.estado === 'buscando' ? 'Buscando en tu WiFi…' : 'Buscar en mi red'}
+          {busqueda?.estado === 'buscando' ? 'Buscando en tu WiFi… (7 s)' : 'Buscar en mi red'}
         </Boton>
-        <ResultadosBusqueda
-          busqueda={control.busqueda}
-          alElegir={(host) => {
-            setIp(host)
-            conectarGoogleTv(host)
-          }}
-        />
-        <div className="campo-ip">
-          <input
-            value={ip}
-            onChange={(e) => setIp(e.target.value)}
-            placeholder="IP del decodificador, ej: 192.168.1.50"
-            inputMode="decimal"
-            autoComplete="off"
-          />
-          {conectado ? (
-            <Boton className="pastilla" accion={desconectarGoogleTv} etiqueta="Desconectar">
-              Salir
-            </Boton>
-          ) : (
-            <Boton
-              className="pastilla destacada"
-              accion={() => control.googleTv !== 'conectando' && conectarGoogleTv(ip)}
-              etiqueta="Conectar"
-            >
-              {control.googleTv === 'conectando' ? '…' : 'Conectar'}
-            </Boton>
-          )}
-        </div>
+        {busqueda?.estado === 'listo' && busqueda.aparatos.length === 0 && (
+          <p className="pista">No apareció nada. Revisa que estén encendidos y en el mismo WiFi, y busca otra vez.</p>
+        )}
+        {busqueda?.estado === 'listo' &&
+          busqueda.aparatos.map((a) => (
+            <div key={a.host} className="resultado-red">
+              <div>
+                <strong>{a.nombre}</strong>
+                <small>{a.host}</small>
+              </div>
+              <BotonesEmparejar host={a.host} />
+            </div>
+          ))}
         <details>
-          <summary>¿Cómo lo activo? (solo la primera vez)</summary>
-          <ol>
-            <li>
-              En el decodificador entra a <b>Configuración → Acerca de</b> (a veces está en{' '}
-              <b>Preferencias del dispositivo</b>).
-            </li>
-            <li>
-              Baja hasta <b>Número de compilación</b> y presiona OK <b>7 veces</b> hasta que diga que eres
-              desarrollador.
-            </li>
-            <li>
-              Entra a <b>Opciones para desarrolladores</b> y activa <b>Depuración por USB</b> (o{' '}
-              <b>Depuración ADB por red</b> si aparece).
-            </li>
-            <li>
-              Mira la IP en <b>Configuración → Red</b> y escríbela arriba.
-            </li>
-            <li>
-              Toca <b>Conectar</b>. Si en el TV sale "¿Permitir depuración?", marca <b>Permitir siempre</b> y
-              acepta.
-            </li>
-          </ol>
-          <p>El celular y el decodificador deben estar en el mismo WiFi.</p>
+          <summary>¿No aparece? Escribir la IP a mano</summary>
+          <div className="campo-ip">
+            <input
+              value={ipManual}
+              onChange={(e) => setIpManual(e.target.value.trim())}
+              placeholder="ej: 192.168.1.11"
+              inputMode="decimal"
+              autoComplete="off"
+            />
+          </div>
+          {ipManual && <BotonesEmparejar host={ipManual} />}
         </details>
+      </section>
+
+      <section className="tarjeta vidrio-panel">
+        <h2>
+          <Icono nombre="infrarrojo" tam={22} /> Infrarrojo (respaldo)
+        </h2>
+        <p className={`estado ${control.irDisponible === false ? 'mal' : 'bien'}`}>
+          {control.irDisponible === false
+            ? 'Este celular no tiene emisor infrarrojo'
+            : control.irDisponible
+              ? 'Emisor infrarrojo listo ✓'
+              : 'Vista previa: el infrarrojo funciona en la app instalada'}
+        </p>
+        <p className="pista">Si el WiFi falla, los botones salen por infrarrojo apuntando al aparato.</p>
+        <Boton className="pastilla ancha" accion={() => setBuscador(true)} etiqueta="Buscar el código del TV">
+          <Icono nombre="buscar" tam={20} /> {perfilDe('tv') ? 'Cambiar código infrarrojo del TV' : 'Buscar código infrarrojo del TV'}
+        </Boton>
       </section>
 
       <section className="tarjeta vidrio-panel">
@@ -181,6 +215,7 @@ export function PantallaAjustes() {
       <p className="pie">Control Aero · TK Digital Solutions{esApp ? '' : ' · vista previa web'}</p>
 
       {buscador && <AsistentePerfil cerrar={() => setBuscador(false)} />}
+      {control.emparejando && <HojaCodigo key={control.emparejando.host} emparejando={control.emparejando} />}
     </div>
   )
 }

@@ -1262,3 +1262,44 @@ details li {
 .vidrio-boton svg {
   flex: none;
 }
+
+.dispositivo-tarjeta > div {
+  flex: 1;
+}
+
+.resultado-red {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: rgba(0, 50, 110, 0.25);
+}
+
+.resultado-red > div:first-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.resultado-red small {
+  color: var(--texto-suave);
+}
+
+.emparejar-verde {
+  background: linear-gradient(180deg, rgba(150, 240, 120, 0.7), rgba(20, 140, 70, 0.7));
+}
+
+.emparejar-azul {
+  background: linear-gradient(180deg, rgba(110, 200, 255, 0.7), rgba(10, 110, 200, 0.7));
+}
+
+.entrada-codigo {
+  text-align: center;
+  font-size: 30px !important;
+  font-weight: 800;
+  letter-spacing: 0.35em;
+}
+
+details .campo-ip {
+  margin: 10px 0;
+}
