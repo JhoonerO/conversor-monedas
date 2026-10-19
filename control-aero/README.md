@@ -28,7 +28,7 @@ control-aero/
 │   │   ├── control.js          # decide si cada botón va por infrarrojo o WiFi
 │   │   └── nativo.js           # puente con el código Android
 │   └── ir/
-│       ├── perfiles.json       # 60 controles de TV (generado)
+│       ├── perfiles.json       # 115 controles de TV (generado)
 │       ├── protocolos.js       # NEC, Samsung, RC5, RC6 y Sony → señal infrarroja
 │       └── teclas.js           # catálogo de botones
 ├── scripts/generar-perfiles-ir.mjs
