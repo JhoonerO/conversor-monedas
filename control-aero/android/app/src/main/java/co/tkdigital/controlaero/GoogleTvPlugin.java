@@ -115,6 +115,8 @@ public class GoogleTvPlugin extends Plugin {
         }
     }
 
+    /** Busca en el WiFi aparatos Google TV / Android TV que aceptan emparejarse con código. */
+    @PluginMethod
     public void buscar(PluginCall call) {
         NsdManager nsd = (NsdManager) getContext().getSystemService(Context.NSD_SERVICE);
         if (nsd == null) {
