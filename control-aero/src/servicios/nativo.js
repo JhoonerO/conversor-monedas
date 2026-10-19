@@ -23,6 +23,10 @@ export const GoogleTv = esApp
       },
       enviar: async () => {},
       desconectar: async () => {},
+      buscar: async () => {
+        await demora(1500)
+        return { aparatos: [] }
+      },
     }
 
 export function vibrar() {

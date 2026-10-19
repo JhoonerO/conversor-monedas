@@ -1248,3 +1248,17 @@ details li {
   padding: 6px 14px;
   min-height: 40px;
 }
+
+.dispositivo-tarjeta div {
+  min-width: 0;
+}
+
+.dispositivo-tarjeta small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vidrio-boton svg {
+  flex: none;
+}

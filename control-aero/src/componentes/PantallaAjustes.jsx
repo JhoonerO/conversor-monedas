@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { Boton } from './Boton.jsx'
 import { Icono } from './Iconos.jsx'
+import { AsistentePerfil } from './AsistentePerfil.jsx'
 import {
   useControl,
   cambiarAjuste,
   conectarGoogleTv,
   desconectarGoogleTv,
   DISPOSITIVOS,
+  perfilDe,
+  buscarEnRed,
 } from '../servicios/control.js'
 import { esApp } from '../servicios/nativo.js'
 
@@ -20,9 +23,40 @@ function Interruptor({ activo, alCambiar, children }) {
   )
 }
 
+function ResultadosBusqueda({ busqueda, alElegir }) {
+  if (busqueda?.estado !== 'listo') return null
+  if (busqueda.aparatos.length === 0) {
+    return (
+      <p className="pista">
+        No apareció nada. Tu decodificador no se anuncia en la red: no acepta emparejarse con código. Usa la conexión
+        manual de abajo (activar depuración una sola vez).
+      </p>
+    )
+  }
+  return busqueda.aparatos.map((a) => (
+    <div key={a.host} className="dispositivo-tarjeta">
+      <span className="muestra azul" />
+      <div>
+        <strong>{a.nombre}</strong>
+        <small>
+          {a.host}
+          {a.emparejar ? ' · acepta código en pantalla ✓' : ''}
+          {a.adb ? ' · depuración activa' : ''}
+        </small>
+      </div>
+      {a.adb && (
+        <Boton className="pastilla" accion={() => alElegir(a.host)} etiqueta={`Conectar a ${a.nombre}`}>
+          Usar
+        </Boton>
+      )}
+    </div>
+  ))
+}
+
 export function PantallaAjustes() {
   const control = useControl()
   const [ip, setIp] = useState(control.ipGoogleTv)
+  const [buscador, setBuscador] = useState(false)
   const conectado = control.googleTv === 'conectado'
 
   const estadoIr =
@@ -39,17 +73,21 @@ export function PantallaAjustes() {
           <Icono nombre="infrarrojo" tam={22} /> Mis controles
         </h2>
         <p className={`estado ${control.irDisponible === false ? 'mal' : 'bien'}`}>{estadoIr}</p>
-        {DISPOSITIVOS.map((d) => (
-          <div key={d.id} className="dispositivo-tarjeta">
-            <span className={`muestra ${d.tema}`} />
-            <div>
-              <strong>{d.nombre}</strong>
-              <small>
-                Código {d.perfil.marca} {d.perfil.modelo} · tema {d.tema}
-              </small>
+        {DISPOSITIVOS.map((d) => {
+          const p = perfilDe(d.id)
+          return (
+            <div key={d.id} className="dispositivo-tarjeta">
+              <span className={`muestra ${d.tema}`} />
+              <div>
+                <strong>{d.nombre}</strong>
+                <small>{p ? `Código ${p.marca} ${p.modelo}` : 'Sin código todavía'}</small>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
+        <Boton className="pastilla ancha destacada" accion={() => setBuscador(true)} etiqueta="Buscar el código del TV">
+          <Icono nombre="buscar" tam={20} /> {perfilDe('tv') ? 'Cambiar código del TV' : 'Buscar código del TV'}
+        </Boton>
         <Interruptor activo={control.volumenAlTv} alCambiar={(v) => cambiarAjuste('volumenAlTv', v)}>
           El volumen y el silencio siempre van al TV
         </Interruptor>
@@ -67,6 +105,21 @@ export function PantallaAjustes() {
         <p className={`estado ${conectado ? 'bien' : ''}`}>
           {conectado ? 'Conectado ✓' : control.googleTv === 'conectando' ? 'Conectando… mira el TV' : 'Desconectado'}
         </p>
+        <Boton
+          className="pastilla ancha"
+          accion={() => control.busqueda?.estado !== 'buscando' && buscarEnRed()}
+          etiqueta="Buscar en mi red"
+        >
+          <Icono nombre="buscar" tam={20} />
+          {control.busqueda?.estado === 'buscando' ? 'Buscando en tu WiFi…' : 'Buscar en mi red'}
+        </Boton>
+        <ResultadosBusqueda
+          busqueda={control.busqueda}
+          alElegir={(host) => {
+            setIp(host)
+            conectarGoogleTv(host)
+          }}
+        />
         <div className="campo-ip">
           <input
             value={ip}
@@ -126,6 +179,8 @@ export function PantallaAjustes() {
       </section>
 
       <p className="pie">Control Aero · TK Digital Solutions{esApp ? '' : ' · vista previa web'}</p>
+
+      {buscador && <AsistentePerfil cerrar={() => setBuscador(false)} />}
     </div>
   )
 }

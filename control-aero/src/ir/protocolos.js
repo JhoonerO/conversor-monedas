@@ -87,6 +87,13 @@ const CODIFICADORES = {
   SIRC20: (a, c) => sirc(a, c, 13),
 }
 
+// Un código guardado: [protocolo, dirección, comando] o, si es una señal
+// cruda, [-1, frecuencia, tiempos]
+export function codificarCodigo(protocolos, [protocolo, a, b]) {
+  if (protocolo === -1) return { frecuencia: a, patron: b }
+  return codificar(protocolos[protocolo], a, b)
+}
+
 export function codificar(protocolo, direccion, comando) {
   const codificador = CODIFICADORES[protocolo]
   if (!codificador) throw new Error(`Protocolo no soportado: ${protocolo}`)

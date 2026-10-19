@@ -1,5 +1,12 @@
 package co.tkdigital.controlaero;
 
+import android.content.Context;
+import android.net.nsd.NsdManager;
+import android.net.nsd.NsdServiceInfo;
+import android.os.Handler;
+import android.os.Looper;
+import com.getcapacitor.JSArray;
+import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -10,6 +17,11 @@ import dadb.AdbShellResponse;
 import dadb.AdbShellStream;
 import dadb.Dadb;
 import java.io.File;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -85,6 +97,124 @@ public class GoogleTvPlugin extends Plugin {
                 }
             }
         });
+    }
+
+    /**
+     * Busca en el WiFi aparatos Android TV / Google TV que se anuncien solos.
+     * - "emparejar": aceptan emparejarse con un código en pantalla (como la app Google TV)
+     * - "adb": tienen la depuración inalámbrica activada
+     */
+    @PluginMethod
+    public void buscar(PluginCall call) {
+        NsdManager nsd = (NsdManager) getContext().getSystemService(Context.NSD_SERVICE);
+        if (nsd == null) {
+            call.reject("Este celular no permite buscar en la red");
+            return;
+        }
+        String[][] tipos = {
+            { "_androidtvremote2._tcp.", "emparejar" },
+            { "_adb-tls-connect._tcp.", "adb" },
+            { "_adb._tcp.", "adb" },
+        };
+        Map<String, JSObject> encontrados = new LinkedHashMap<>();
+        ArrayDeque<NsdServiceInfo> porResolver = new ArrayDeque<>();
+        Map<String, String> tipoDe = new LinkedHashMap<>();
+        List<NsdManager.DiscoveryListener> oyentes = new ArrayList<>();
+        boolean[] resolviendo = { false };
+        Handler principal = new Handler(Looper.getMainLooper());
+
+        // Android solo deja resolver un servicio a la vez: los ponemos en fila
+        Runnable[] siguiente = new Runnable[1];
+        siguiente[0] = () -> {
+            if (resolviendo[0] || porResolver.isEmpty()) return;
+            resolviendo[0] = true;
+            NsdServiceInfo servicio = porResolver.poll();
+            nsd.resolveService(servicio, new NsdManager.ResolveListener() {
+                @Override
+                public void onResolveFailed(NsdServiceInfo s, int error) {
+                    principal.post(() -> {
+                        resolviendo[0] = false;
+                        siguiente[0].run();
+                    });
+                }
+
+                @Override
+                public void onServiceResolved(NsdServiceInfo s) {
+                    principal.post(() -> {
+                        if (s.getHost() != null) {
+                            String host = s.getHost().getHostAddress();
+                            String tipo = tipoDe.get(s.getServiceType().replaceAll("^\\.|\\.$", ""));
+                            JSObject aparato = encontrados.get(host);
+                            if (aparato == null) {
+                                aparato = new JSObject();
+                                aparato.put("host", host);
+                                aparato.put("nombre", s.getServiceName());
+                                aparato.put("emparejar", false);
+                                aparato.put("adb", false);
+                                encontrados.put(host, aparato);
+                            }
+                            if ("emparejar".equals(tipo)) {
+                                aparato.put("emparejar", true);
+                                aparato.put("nombre", s.getServiceName());
+                            } else {
+                                aparato.put("adb", true);
+                            }
+                        }
+                        resolviendo[0] = false;
+                        siguiente[0].run();
+                    });
+                }
+            });
+        };
+
+        for (String[] t : tipos) {
+            tipoDe.put(t[0].replaceAll("^\\.|\\.$", ""), t[1]);
+            NsdManager.DiscoveryListener oyente = new NsdManager.DiscoveryListener() {
+                @Override
+                public void onDiscoveryStarted(String tipo) {}
+
+                @Override
+                public void onDiscoveryStopped(String tipo) {}
+
+                @Override
+                public void onStartDiscoveryFailed(String tipo, int error) {}
+
+                @Override
+                public void onStopDiscoveryFailed(String tipo, int error) {}
+
+                @Override
+                public void onServiceLost(NsdServiceInfo s) {}
+
+                @Override
+                public void onServiceFound(NsdServiceInfo s) {
+                    principal.post(() -> {
+                        porResolver.add(s);
+                        siguiente[0].run();
+                    });
+                }
+            };
+            try {
+                nsd.discoverServices(t[0], NsdManager.PROTOCOL_DNS_SD, oyente);
+                oyentes.add(oyente);
+            } catch (Exception ignorado) {
+                // algunos tipos no se pueden buscar en ciertos celulares
+            }
+        }
+
+        // Buscamos unos segundos y devolvemos lo que haya aparecido
+        principal.postDelayed(() -> {
+            for (NsdManager.DiscoveryListener o : oyentes) {
+                try {
+                    nsd.stopServiceDiscovery(o);
+                } catch (Exception ignorado) {
+                }
+            }
+            JSArray lista = new JSArray();
+            for (JSObject a : encontrados.values()) lista.put(a);
+            JSObject respuesta = new JSObject();
+            respuesta.put("aparatos", lista);
+            call.resolve(respuesta);
+        }, 7000);
     }
 
     @PluginMethod

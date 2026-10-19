@@ -2,18 +2,28 @@
 // y por dónde (infrarrojo o WiFi) sale cada botón.
 import { useSyncExternalStore } from 'react'
 import datosPerfiles from '../ir/perfiles.json'
-import { codificar } from '../ir/protocolos.js'
+import { codificarCodigo } from '../ir/protocolos.js'
 import { TECLAS, ALTERNATIVAS_IR, APPS } from '../ir/teclas.js'
 import { Infrarrojo, GoogleTv, esApp, vibrar } from './nativo.js'
 
 const PROTOCOLOS = datosPerfiles.protocolos
 const perfil = (id) => datosPerfiles.perfiles.find((p) => p.id === id)
 
-// Los dos controles que funcionaron con tus aparatos
+// El decodificador responde a dos códigos: usamos el MXQ (trae el cursor)
+// y completamos con el Hisense las teclas que le falten
+const MXQ = perfil('android-tv-mxq')
+const HISENSE = perfil('hisense-55k3201guwus')
+const PERFIL_DECO = { id: 'deco', marca: 'Android', modelo: 'MXQ + Hisense', teclas: { ...HISENSE.teclas, ...MXQ.teclas } }
+
+// Códigos para buscar el del TV (sin los que ya sabemos que son del deco)
+export const PERFILES_TV = datosPerfiles.perfiles.filter((p) => p !== MXQ && p !== HISENSE)
+
 export const DISPOSITIVOS = [
-  { id: 'tv', nombre: 'Televisor', corto: 'TV', tema: 'verde', perfil: perfil('hisense-55k3201guwus') },
-  { id: 'caja', nombre: 'Decodificador', corto: 'Deco', tema: 'azul', perfil: perfil('android-tv-mxq') },
+  { id: 'tv', nombre: 'Televisor', corto: 'TV', tema: 'verde' },
+  { id: 'caja', nombre: 'Decodificador', corto: 'Deco', tema: 'azul' },
 ]
+
+export const perfilDe = (id) => (id === 'caja' ? PERFIL_DECO : (PERFILES_TV.find((p) => p.id === estado.perfilTv) ?? null))
 
 // Estas teclas siempre van al TV aunque estés usando el decodificador
 const TECLAS_DEL_TV = ['volUp', 'volDown', 'mute']
@@ -21,6 +31,7 @@ const TECLAS_DEL_TV = ['volUp', 'volDown', 'mute']
 const CLAVE_GUARDADO = 'control-aero:ajustes-v2'
 const AJUSTES_INICIALES = {
   dispositivo: 'caja',
+  perfilTv: null,
   volumenAlTv: true,
   ipGoogleTv: '',
   vibracion: true,
@@ -38,6 +49,7 @@ let estado = {
   ...leerAjustes(),
   irDisponible: null, // null = todavía no sabemos
   googleTv: 'desconectado', // 'desconectado' | 'conectando' | 'conectado'
+  busqueda: null, // { estado: 'buscando' | 'listo', aparatos: [...] }
   aviso: null,
 }
 
@@ -70,6 +82,7 @@ export function cambiarDispositivo(id) {
   if (id === estado.dispositivo) return
   if (estado.vibracion) vibrar()
   actualizar({ dispositivo: id })
+  if (id === 'tv' && !perfilDe('tv')) avisar('Busca el código de tu TV en Ajustes → "Buscar código del TV"')
 }
 
 let temporizadorAviso
@@ -81,18 +94,35 @@ export function avisar(texto, tipo = 'info') {
 
 // ---------- Infrarrojo ----------
 
-function codigoIr(dispositivo, id) {
+function codigoEnPerfil(p, id) {
+  if (!p) return null
   for (const clave of [id, ...(ALTERNATIVAS_IR[id] ?? [])]) {
-    if (dispositivo.perfil.teclas[clave]) return dispositivo.perfil.teclas[clave]
+    if (p.teclas[clave]) return p.teclas[clave]
   }
   return null
 }
 
-async function enviarIr(dispositivo, id) {
-  const [protocolo, direccion, comando] = codigoIr(dispositivo, id)
-  const { frecuencia, patron } = codificar(PROTOCOLOS[protocolo], direccion, comando)
-  if (!esApp) return avisar(`Demo · ${dispositivo.corto}: ${TECLAS[id]?.nombre ?? id}`)
+const codigoIr = (dispositivo, id) => codigoEnPerfil(perfilDe(dispositivo.id), id)
+
+async function transmitir(codigo, texto) {
+  const { frecuencia, patron } = codificarCodigo(PROTOCOLOS, codigo)
+  if (!esApp) return avisar(`Demo · ${texto}`)
   await Infrarrojo.transmitir({ frecuencia, patron })
+}
+
+const enviarIr = (dispositivo, id) =>
+  transmitir(codigoIr(dispositivo, id), `${dispositivo.corto}: ${TECLAS[id]?.nombre ?? id}`)
+
+// Usado por el buscador del código del TV
+export async function probarPerfil(p, id) {
+  vibrar()
+  const codigo = codigoEnPerfil(p, id)
+  if (!codigo) return avisar(`Este código no trae "${TECLAS[id].nombre}", prueba otro botón`, 'error')
+  try {
+    await transmitir(codigo, `${p.marca}: ${TECLAS[id].nombre}`)
+  } catch (e) {
+    avisar(e.message, 'error')
+  }
 }
 
 // ---------- Decodificador por WiFi (opcional: teclado y apps) ----------
@@ -127,6 +157,18 @@ export async function desconectarGoogleTv() {
   actualizar({ googleTv: 'desconectado' })
 }
 
+// Busca el decodificador en el WiFi y cuenta cómo se puede conectar
+export async function buscarEnRed() {
+  actualizar({ busqueda: { estado: 'buscando', aparatos: [] } })
+  try {
+    const { aparatos } = await GoogleTv.buscar()
+    actualizar({ busqueda: { estado: 'listo', aparatos } })
+  } catch (e) {
+    actualizar({ busqueda: null })
+    avisar(e.message || 'No se pudo buscar en la red', 'error')
+  }
+}
+
 // ---------- Botones ----------
 
 export async function presionar(id) {
@@ -139,8 +181,9 @@ export async function presionar(id) {
     return avisar('Esto necesita el decodificador conectado por WiFi (Ajustes)', 'error')
   }
 
-  const destino =
-    estado.volumenAlTv && TECLAS_DEL_TV.includes(id) ? DISPOSITIVOS[0] : dispositivoActivo()
+  // Si el TV todavía no tiene código, el volumen se queda en el aparato activo
+  const volumenAlTv = estado.volumenAlTv && TECLAS_DEL_TV.includes(id) && perfilDe('tv')
+  const destino = volumenAlTv ? DISPOSITIVOS[0] : dispositivoActivo()
 
   if (estado.irDisponible !== false && codigoIr(destino, id)) {
     return enviarIr(destino, id).catch((e) => avisar(e.message, 'error'))
@@ -148,6 +191,7 @@ export async function presionar(id) {
   // El control infrarrojo no trae ese botón: probamos por WiFi si hay conexión
   if (destino.id === 'caja' && wifi && tecla.adb) return enviarWifi({ tipo: 'tecla', codigo: tecla.adb })
   if (estado.irDisponible === false) return avisar('Este celular no tiene infrarrojo', 'error')
+  if (!perfilDe(destino.id)) return avisar('Primero busca el código del TV en Ajustes', 'error')
   avisar(`El control del ${destino.nombre.toLowerCase()} no trae "${tecla.nombre}"`, 'error')
 }
 

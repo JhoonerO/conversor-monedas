@@ -62,19 +62,36 @@ const PRIORIDAD = [
   'Samsung', 'LG', 'Sony', 'Panasonic', 'Sharp', 'Toshiba', 'JVC', 'Hitachi',
 ]
 
+// Señal "cruda" (tiempos tal cual se grabaron): nos quedamos con la primera
+// trama para no mandar la tecla repetida. Se guarda como [-1, frecuencia, tiempos].
+function senalCruda(frecuencia, datos) {
+  if (!frecuencia || !datos) return null
+  const tiempos = datos.split(/\s+/).map(Number)
+  const fin = tiempos.findIndex((t, i) => i % 2 === 1 && t > 20000)
+  const trama = fin === -1 ? tiempos : tiempos.slice(0, fin)
+  if (trama.length % 2 === 0) trama.pop() // debe terminar con luz encendida
+  if (trama.length < 15 || trama.some((t) => !(t > 0))) return null
+  return [-1, frecuencia, trama]
+}
+
 function leerArchivo(ruta) {
   const teclas = {}
   for (const bloque of fs.readFileSync(ruta, 'utf8').split(/^#.*$/m)) {
     const campo = (k) => bloque.match(new RegExp(`^${k}:\\s*(.+)$`, 'm'))?.[1].trim()
     const nombre = campo('name')
-    if (!nombre || campo('type') !== 'parsed') continue
-    const protocolo = campo('protocol')
-    if (!PROTOCOLOS.includes(protocolo)) continue
-    const bytes = (txt) => txt.split(/\s+/).reduce((v, b, i) => v + parseInt(b, 16) * 256 ** i, 0)
+    if (!nombre) continue
     const clave = Object.keys(ALIAS).find((k) => ALIAS[k].test(nombre.toLowerCase()))
-    if (clave && !teclas[clave]) {
-      teclas[clave] = [PROTOCOLOS.indexOf(protocolo), bytes(campo('address')), bytes(campo('command'))]
+    if (!clave || teclas[clave]) continue
+
+    if (campo('type') === 'raw') {
+      const crudo = senalCruda(Number(campo('frequency')), campo('data'))
+      if (crudo) teclas[clave] = crudo
+      continue
     }
+    const protocolo = campo('protocol')
+    if (campo('type') !== 'parsed' || !PROTOCOLOS.includes(protocolo)) continue
+    const bytes = (txt) => txt.split(/\s+/).reduce((v, b, i) => v + parseInt(b, 16) * 256 ** i, 0)
+    teclas[clave] = [PROTOCOLOS.indexOf(protocolo), bytes(campo('address')), bytes(campo('command'))]
   }
   return teclas
 }
@@ -93,7 +110,7 @@ for (const marca of fs.readdirSync(carpetaTv)) {
   for (const archivo of fs.readdirSync(dir).filter((f) => f.endsWith('.ir'))) {
     const teclas = leerArchivo(path.join(dir, archivo))
     // Un perfil sirve solo si tiene lo básico para el asistente y el uso diario
-    if (!['power', 'mute', 'volUp', 'volDown'].every((k) => teclas[k])) continue
+    if (!teclas.power || !(teclas.mute || teclas.volUp || teclas.source)) continue
     const prioridad = PRIORIDAD.indexOf(marca)
     candidatos.push({
       marca,
@@ -107,12 +124,12 @@ for (const marca of fs.readdirSync(carpetaTv)) {
 
 candidatos.sort((a, b) => a.orden - b.orden || b.puntaje - a.puntaje)
 
-// Juntamos perfiles repetidos: si el código de "silencio" y "volumen +" son
+// Juntamos perfiles repetidos: si encender, silencio y volumen + son
 // iguales es el mismo control, así que completamos las teclas que le falten
 const porFirma = new Map()
 const perfiles = []
 for (const c of candidatos) {
-  const firma = JSON.stringify([c.teclas.mute, c.teclas.volUp])
+  const firma = JSON.stringify([c.teclas.power, c.teclas.mute, c.teclas.volUp])
   const existente = porFirma.get(firma)
   if (existente) {
     existente.teclas = { ...c.teclas, ...existente.teclas }
