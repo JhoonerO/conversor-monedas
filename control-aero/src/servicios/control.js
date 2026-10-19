@@ -216,7 +216,8 @@ export async function buscarEnRed() {
 // Si el aparato está conectado por WiFi, se usa eso (más confiable);
 // si no, infrarrojo.
 
-export async function presionar(id) {
+// soloIr: obliga a usar infrarrojo (el cursor del decodificador solo lo entiende así)
+export async function presionar(id, { soloIr = false } = {}) {
   if (estado.vibracion) vibrar()
   const tecla = TECLAS[id]
 
@@ -224,7 +225,7 @@ export async function presionar(id) {
   const tvAlcanzable = perfilDe('tv') || wifiListo('tv')
   const destino = estado.volumenAlTv && TECLAS_DEL_TV.includes(id) && tvAlcanzable ? DISPOSITIVOS[0] : dispositivoActivo()
 
-  if (wifiListo(destino.id) && tecla.adb) return enviarWifi(destino, { tipo: 'tecla', codigo: tecla.adb })
+  if (!soloIr && wifiListo(destino.id) && tecla.adb) return enviarWifi(destino, { tipo: 'tecla', codigo: tecla.adb })
   if (tecla.soloWifi) return avisar(`Conecta el ${destino.nombre.toLowerCase()} por WiFi en Ajustes`, 'error')
   if (estado.irDisponible !== false && codigoIr(destino, id)) {
     return enviarIr(destino, id).catch((e) => avisar(e.message, 'error'))

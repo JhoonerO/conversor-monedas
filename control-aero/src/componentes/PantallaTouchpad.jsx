@@ -11,6 +11,7 @@ const PASO_VOLUMEN = 26
 function useDeslizar({ paso, alMover, alTocar, alMantener }) {
   const gesto = useRef(null)
   const [punto, setPunto] = useState(null)
+  const [clic, setClic] = useState(null) // onda que se ve al tocar
 
   const fin = () => {
     clearTimeout(gesto.current?.mantener)
@@ -20,6 +21,7 @@ function useDeslizar({ paso, alMover, alTocar, alMantener }) {
 
   return {
     punto,
+    clic,
     eventos: {
       onPointerDown(e) {
         try {
@@ -63,9 +65,12 @@ function useDeslizar({ paso, alMover, alTocar, alMantener }) {
           }
         }
       },
-      onPointerUp() {
+      onPointerUp(e) {
         const g = gesto.current
-        if (g && !g.movio && !g.usado) alTocar?.()
+        if (g && !g.movio && !g.usado && alTocar) {
+          alTocar()
+          setClic({ x: e.clientX - g.caja.left, y: e.clientY - g.caja.top, id: Date.now() })
+        }
         fin()
       },
       onPointerCancel: fin,
@@ -84,10 +89,13 @@ export function PantallaTouchpad() {
     setCursor(!cursor)
   }
 
+  // Con el cursor activo todo va por infrarrojo: así lo mueve el decodificador
+  const conCursorActivo = cursor && conCursor
+  const opciones = { soloIr: conCursorActivo }
   const pad = useDeslizar({
-    paso: cursor && conCursor ? PASO_CURSOR : PASO,
-    alMover: presionar,
-    alTocar: () => presionar('ok'),
+    paso: conCursorActivo ? PASO_CURSOR : PASO,
+    alMover: (dir) => presionar(dir, opciones),
+    alTocar: () => presionar('ok', opciones),
     alMantener: () => presionar('back'),
   })
   const volumen = useDeslizar({
@@ -102,7 +110,7 @@ export function PantallaTouchpad() {
         <div>
           <strong>Modo Mouse</strong>
           <small>
-            {cursor && conCursor
+            {conCursorActivo
               ? 'Desliza para mover el cursor · toca para hacer clic'
               : 'Desliza para moverte · toca para OK · mantén para atrás'}
           </small>
@@ -122,6 +130,11 @@ export function PantallaTouchpad() {
       <div className="touchpad-zona">
         <div className="touchpad vidrio-panel" {...pad.eventos}>
           <div className="touchpad-brillo" />
+          {pad.clic && (
+            <span key={pad.clic.id} className="touchpad-clic" style={{ left: pad.clic.x, top: pad.clic.y }}>
+              Clic
+            </span>
+          )}
           {pad.punto ? (
             <span className="touchpad-dedo" style={{ left: pad.punto.x, top: pad.punto.y }} />
           ) : (
