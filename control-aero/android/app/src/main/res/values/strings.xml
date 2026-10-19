@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Control Aero</string>
+    <string name="title_activity_main">Control Aero</string>
+    <string name="package_name">co.tkdigital.controlaero</string>
+    <string name="custom_url_scheme">co.tkdigital.controlaero</string>
+</resources>

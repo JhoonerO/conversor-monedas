@@ -1,0 +1,42 @@
+# Compila el APK de Control Aero cada vez que cambia la carpeta control-aero.
+# El APK queda en la pestaña "Actions" de GitHub → la ejecución → "Artifacts".
+name: APK Control Aero
+
+on:
+  push:
+    paths:
+      - 'control-aero/**'
+      - '.github/workflows/apk-control-aero.yml'
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: control-aero
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: control-aero/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync android
+      - run: ./gradlew assembleDebug --no-daemon
+        working-directory: control-aero/android
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: control-aero-apk
+          path: control-aero/android/app/build/outputs/apk/debug/app-debug.apk

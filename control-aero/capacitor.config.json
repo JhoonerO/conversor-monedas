@@ -1,0 +1,8 @@
+{
+  "appId": "co.tkdigital.controlaero",
+  "appName": "Control Aero",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#0b6fb8"
+  }
+}
