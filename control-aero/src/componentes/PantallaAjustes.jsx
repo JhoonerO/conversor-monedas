@@ -1,29 +1,28 @@
 import { useState } from 'react'
 import { Boton } from './Boton.jsx'
 import { Icono } from './Iconos.jsx'
-import { AsistentePerfil } from './AsistentePerfil.jsx'
 import {
   useControl,
-  perfilActual,
   cambiarAjuste,
   conectarGoogleTv,
   desconectarGoogleTv,
+  DISPOSITIVOS,
 } from '../servicios/control.js'
 import { esApp } from '../servicios/nativo.js'
 
-function Opcion({ valor, actual, alElegir, children }) {
+function Interruptor({ activo, alCambiar, children }) {
   return (
-    <button type="button" className={`segmento ${valor === actual ? 'activo' : ''}`} onClick={() => alElegir(valor)}>
+    <label className="interruptor">
+      <input type="checkbox" checked={activo} onChange={(e) => alCambiar(e.target.checked)} />
+      <span />
       {children}
-    </button>
+    </label>
   )
 }
 
 export function PantallaAjustes() {
   const control = useControl()
-  const [asistente, setAsistente] = useState(false)
   const [ip, setIp] = useState(control.ipGoogleTv)
-  const perfil = perfilActual()
   const conectado = control.googleTv === 'conectado'
 
   const estadoIr =
@@ -37,21 +36,34 @@ export function PantallaAjustes() {
     <div className="pantalla pantalla-ajustes">
       <section className="tarjeta vidrio-panel">
         <h2>
-          <Icono nombre="infrarrojo" tam={22} /> Televisor (infrarrojo)
+          <Icono nombre="infrarrojo" tam={22} /> Mis controles
         </h2>
         <p className={`estado ${control.irDisponible === false ? 'mal' : 'bien'}`}>{estadoIr}</p>
-        <p>
-          Control guardado: <b>{perfil ? `${perfil.marca} · ${perfil.modelo}` : 'ninguno todavía'}</b>
-        </p>
-        <Boton className="pastilla ancha destacada" accion={() => setAsistente(true)} etiqueta="Buscar mi control">
-          <Icono nombre="buscar" tam={20} /> {perfil ? 'Cambiar de control' : 'Buscar mi control'}
-        </Boton>
+        {DISPOSITIVOS.map((d) => (
+          <div key={d.id} className="dispositivo-tarjeta">
+            <span className={`muestra ${d.tema}`} />
+            <div>
+              <strong>{d.nombre}</strong>
+              <small>
+                Código {d.perfil.marca} {d.perfil.modelo} · tema {d.tema}
+              </small>
+            </div>
+          </div>
+        ))}
+        <Interruptor activo={control.volumenAlTv} alCambiar={(v) => cambiarAjuste('volumenAlTv', v)}>
+          El volumen y el silencio siempre van al TV
+        </Interruptor>
+        <p className="pista">Cambia entre TV y Deco con los botones de arriba a la derecha.</p>
       </section>
 
       <section className="tarjeta vidrio-panel">
         <h2>
-          <Icono nombre="wifi" tam={22} /> Google TV (WiFi)
+          <Icono nombre="wifi" tam={22} /> Decodificador por WiFi (opcional)
         </h2>
+        <p className="pista">
+          No hace falta para los botones ni el touchpad. Sirve para el <b>teclado</b> y para abrir Netflix,
+          YouTube y demás apps directo.
+        </p>
         <p className={`estado ${conectado ? 'bien' : ''}`}>
           {conectado ? 'Conectado ✓' : control.googleTv === 'conectando' ? 'Conectando… mira el TV' : 'Desconectado'}
         </p>
@@ -59,7 +71,7 @@ export function PantallaAjustes() {
           <input
             value={ip}
             onChange={(e) => setIp(e.target.value)}
-            placeholder="IP del Google TV, ej: 192.168.1.50"
+            placeholder="IP del decodificador, ej: 192.168.1.50"
             inputMode="decimal"
             autoComplete="off"
           />
@@ -81,23 +93,26 @@ export function PantallaAjustes() {
           <summary>¿Cómo lo activo? (solo la primera vez)</summary>
           <ol>
             <li>
-              En el Google TV entra a <b>Configuración → Sistema → Acerca de</b>.
+              En el decodificador entra a <b>Configuración → Acerca de</b> (a veces está en{' '}
+              <b>Preferencias del dispositivo</b>).
             </li>
             <li>
-              Baja hasta <b>Compilación del SO de Android TV</b> y presiona OK <b>7 veces</b> hasta que diga que eres
+              Baja hasta <b>Número de compilación</b> y presiona OK <b>7 veces</b> hasta que diga que eres
               desarrollador.
             </li>
             <li>
-              Vuelve a <b>Sistema → Opciones para desarrolladores</b> y activa <b>Depuración por USB</b>.
+              Entra a <b>Opciones para desarrolladores</b> y activa <b>Depuración por USB</b> (o{' '}
+              <b>Depuración ADB por red</b> si aparece).
             </li>
             <li>
-              Mira la IP en <b>Configuración → Red e Internet → (tu WiFi)</b> y escríbela arriba.
+              Mira la IP en <b>Configuración → Red</b> y escríbela arriba.
             </li>
             <li>
-              Toca <b>Conectar</b>. En el TV saldrá "¿Permitir depuración?": marca <b>Permitir siempre</b> y acepta.
+              Toca <b>Conectar</b>. Si en el TV sale "¿Permitir depuración?", marca <b>Permitir siempre</b> y
+              acepta.
             </li>
           </ol>
-          <p>El celular y el Google TV deben estar en el mismo WiFi.</p>
+          <p>El celular y el decodificador deben estar en el mismo WiFi.</p>
         </details>
       </section>
 
@@ -105,36 +120,12 @@ export function PantallaAjustes() {
         <h2>
           <Icono nombre="engranaje" tam={22} /> Preferencias
         </h2>
-        <p>Flechas, OK, Atrás e Inicio van por:</p>
-        <div className="segmentos">
-          <Opcion valor="auto" actual={control.rutaNavegacion} alElegir={(v) => cambiarAjuste('rutaNavegacion', v)}>
-            Automático
-          </Opcion>
-          <Opcion valor="wifi" actual={control.rutaNavegacion} alElegir={(v) => cambiarAjuste('rutaNavegacion', v)}>
-            Google TV
-          </Opcion>
-          <Opcion valor="ir" actual={control.rutaNavegacion} alElegir={(v) => cambiarAjuste('rutaNavegacion', v)}>
-            Infrarrojo
-          </Opcion>
-        </div>
-        <p className="pista">
-          Automático: el volumen, canales y encendido van al TV por infrarrojo; la navegación va al Google TV si está
-          conectado.
-        </p>
-        <label className="interruptor">
-          <input
-            type="checkbox"
-            checked={control.vibracion}
-            onChange={(e) => cambiarAjuste('vibracion', e.target.checked)}
-          />
-          <span />
+        <Interruptor activo={control.vibracion} alCambiar={(v) => cambiarAjuste('vibracion', v)}>
           Vibrar al tocar
-        </label>
+        </Interruptor>
       </section>
 
       <p className="pie">Control Aero · TK Digital Solutions{esApp ? '' : ' · vista previa web'}</p>
-
-      {asistente && <AsistentePerfil cerrar={() => setAsistente(false)} />}
     </div>
   )
 }

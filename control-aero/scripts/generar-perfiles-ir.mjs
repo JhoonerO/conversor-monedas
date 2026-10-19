@@ -49,6 +49,8 @@ const ALIAS = {
   youtube: /^youtube$/,
   prime: /^(prime_video|prime|amazon)$/,
   disney: /^disney\+?$/,
+  mouse: /^mouse$/,
+  apps: /^(app|apps)$/,
 }
 for (let n = 0; n <= 9; n++) ALIAS['n' + n] = new RegExp(`^${n}$`)
 
@@ -75,6 +77,12 @@ function leerArchivo(ruta) {
     }
   }
   return teclas
+}
+
+// Teclas que la base de datos guarda como señal "cruda" y decodificamos a mano
+// (perfil -> tecla -> [protocolo, dirección, comando])
+const CORRECCIONES = {
+  'android-tv-mxq': { up: ['NEC', 0x01, 0x16] },
 }
 
 const candidatos = []
@@ -113,6 +121,12 @@ for (const c of candidatos) {
   const perfil = { id: `${c.marca}-${c.modelo}`.toLowerCase().replace(/[^a-z0-9]+/g, '-'), marca: c.marca, modelo: c.modelo || 'Genérico', teclas: c.teclas }
   porFirma.set(firma, perfil)
   perfiles.push(perfil)
+}
+
+for (const perfil of perfiles) {
+  for (const [tecla, [protocolo, direccion, comando]] of Object.entries(CORRECCIONES[perfil.id] ?? {})) {
+    perfil.teclas[tecla] = [PROTOCOLOS.indexOf(protocolo), direccion, comando]
+  }
 }
 
 const salida = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'src', 'ir', 'perfiles.json')

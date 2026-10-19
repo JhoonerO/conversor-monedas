@@ -1,39 +1,38 @@
 // Catálogo de teclas del control.
-// - adb: código de tecla de Android (para Google TV por WiFi)
-// - destino: a quién le corresponde la tecla normalmente
-//     'tv'   -> el televisor Kalley (infrarrojo)
-//     'caja' -> el Google TV / caja Android (WiFi), con infrarrojo de respaldo
+// - adb: código de tecla de Android (para el decodificador por WiFi)
+// - soloWifi: no existe en los controles infrarrojos
 
 export const TECLAS = {
-  power: { nombre: 'Encender', adb: 26, destino: 'tv' },
-  volUp: { nombre: 'Volumen +', adb: 24, destino: 'tv' },
-  volDown: { nombre: 'Volumen −', adb: 25, destino: 'tv' },
-  mute: { nombre: 'Silencio', adb: 164, destino: 'tv' },
-  chUp: { nombre: 'Canal +', adb: 166, destino: 'tv' },
-  chDown: { nombre: 'Canal −', adb: 167, destino: 'tv' },
-  source: { nombre: 'Fuente', adb: 178, destino: 'tv' },
+  power: { nombre: 'Encender', adb: 26 },
+  volUp: { nombre: 'Volumen +', adb: 24 },
+  volDown: { nombre: 'Volumen −', adb: 25 },
+  mute: { nombre: 'Silencio', adb: 164 },
+  chUp: { nombre: 'Canal +', adb: 166 },
+  chDown: { nombre: 'Canal −', adb: 167 },
+  source: { nombre: 'Fuente', adb: 178 },
 
-  up: { nombre: 'Arriba', adb: 19, destino: 'caja' },
-  down: { nombre: 'Abajo', adb: 20, destino: 'caja' },
-  left: { nombre: 'Izquierda', adb: 21, destino: 'caja' },
-  right: { nombre: 'Derecha', adb: 22, destino: 'caja' },
-  ok: { nombre: 'OK', adb: 23, destino: 'caja' },
-  back: { nombre: 'Atrás', adb: 4, destino: 'caja' },
-  home: { nombre: 'Inicio', adb: 3, destino: 'caja' },
-  menu: { nombre: 'Menú', adb: 82, destino: 'caja' },
-  settings: { nombre: 'Opciones', adb: 176, destino: 'caja' },
-  info: { nombre: 'Info', adb: 165, destino: 'caja' },
-  apps: { nombre: 'Apps', adb: 284, destino: 'caja' },
-  playPause: { nombre: 'Reproducir / Pausar', adb: 85, destino: 'caja' },
-  rewind: { nombre: 'Anterior', adb: 89, destino: 'caja' },
-  forward: { nombre: 'Siguiente', adb: 90, destino: 'caja' },
-  stop: { nombre: 'Detener', adb: 86, destino: 'caja' },
+  up: { nombre: 'Arriba', adb: 19 },
+  down: { nombre: 'Abajo', adb: 20 },
+  left: { nombre: 'Izquierda', adb: 21 },
+  right: { nombre: 'Derecha', adb: 22 },
+  ok: { nombre: 'OK', adb: 23 },
+  back: { nombre: 'Atrás', adb: 4 },
+  home: { nombre: 'Inicio', adb: 3 },
+  menu: { nombre: 'Menú', adb: 82 },
+  settings: { nombre: 'Opciones', adb: 176 },
+  info: { nombre: 'Info', adb: 165 },
+  apps: { nombre: 'Apps', adb: 284 },
+  playPause: { nombre: 'Reproducir / Pausar', adb: 85 },
+  rewind: { nombre: 'Anterior', adb: 89 },
+  forward: { nombre: 'Siguiente', adb: 90 },
+  stop: { nombre: 'Detener', adb: 86 },
+  mouse: { nombre: 'Cursor', adb: null }, // muestra/oculta el cursor del decodificador
 
-  borrar: { nombre: 'Borrar', adb: 67, destino: 'caja', soloWifi: true },
-  enter: { nombre: 'Enter', adb: 66, destino: 'caja', soloWifi: true },
+  borrar: { nombre: 'Borrar', adb: 67, soloWifi: true },
+  enter: { nombre: 'Enter', adb: 66, soloWifi: true },
 }
 
-for (let n = 0; n <= 9; n++) TECLAS['n' + n] = { nombre: String(n), adb: 7 + n, destino: 'tv' }
+for (let n = 0; n <= 9; n++) TECLAS['n' + n] = { nombre: String(n), adb: 7 + n }
 
 // Si el perfil infrarrojo no trae una tecla, probamos con otra equivalente
 export const ALTERNATIVAS_IR = {

@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react'
 import { Boton } from './Boton.jsx'
 import { Icono } from './Iconos.jsx'
-import { presionar } from '../servicios/control.js'
+import { presionar, useControl, tieneTecla } from '../servicios/control.js'
 
 const PASO = 34 // píxeles de deslizamiento por cada movimiento en el TV
+const PASO_CURSOR = 16 // con el cursor activo: pasos cortos para que se mueva suave
 const PASO_VOLUMEN = 26
 
 // Convierte deslizamientos en flechas, como el control oficial de Google TV
@@ -73,8 +74,18 @@ function useDeslizar({ paso, alMover, alTocar, alMantener }) {
 }
 
 export function PantallaTouchpad() {
+  const { dispositivo } = useControl()
+  // El decodificador no avisa si el cursor está visible: lo llevamos nosotros
+  const [cursor, setCursor] = useState(false)
+  const conCursor = dispositivo === 'caja' && tieneTecla('mouse')
+
+  const alternarCursor = () => {
+    presionar('mouse')
+    setCursor(!cursor)
+  }
+
   const pad = useDeslizar({
-    paso: PASO,
+    paso: cursor && conCursor ? PASO_CURSOR : PASO,
     alMover: presionar,
     alTocar: () => presionar('ok'),
     alMantener: () => presionar('back'),
@@ -90,8 +101,22 @@ export function PantallaTouchpad() {
         <Icono nombre="touchpad" tam={22} />
         <div>
           <strong>Modo Mouse</strong>
-          <small>Desliza para moverte · toca para OK · mantén para atrás</small>
+          <small>
+            {cursor && conCursor
+              ? 'Desliza para mover el cursor · toca para hacer clic'
+              : 'Desliza para moverte · toca para OK · mantén para atrás'}
+          </small>
         </div>
+        {conCursor && (
+          <Boton
+            className={`pastilla boton-cursor ${cursor ? 'cursor-activo' : ''}`}
+            accion={alternarCursor}
+            etiqueta="Mostrar u ocultar el cursor"
+          >
+            <Icono nombre="cursor" tam={18} />
+            {cursor ? 'Cursor ON' : 'Cursor'}
+          </Boton>
+        )}
       </div>
 
       <div className="touchpad-zona">

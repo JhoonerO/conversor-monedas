@@ -38,7 +38,7 @@ export function PantallaTeclado() {
       {googleTv !== 'conectado' && (
         <div className="nota vidrio-panel">
           <Icono nombre="wifi" tam={20} />
-          El teclado viaja por WiFi: conecta tu Google TV en <b>Ajustes</b>.
+          El teclado viaja por WiFi: conecta el decodificador en <b>Ajustes</b>.
         </div>
       )}
 

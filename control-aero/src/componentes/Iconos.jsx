@@ -25,6 +25,8 @@ const trazos = {
   wifi: 'M2 9a15 15 0 0120 0M5.5 12.5a10 10 0 0113 0M9 16a5 5 0 016 0M12 19.5h.01',
   infrarrojo: 'M12 20v-6m-4.5 2.5a6.4 6.4 0 019 0M4 13a11.3 11.3 0 0116 0M9 5h6l-1 5h-4z',
   tv: 'M3 5h18v12H3zM8 21h8',
+  deco: 'M3 9h18v7H3zM7 12.5h.01M11 12.5h.01M16 12.5h2M6 16v2M18 16v2',
+  cursor: 'M5 3l13 8-6 1.5L9 19z',
   numeros: 'M4 9h16M4 15h16M10 4L8 20M16 4l-2 16',
   borrar: 'M21 5H9l-7 7 7 7h12zm-9 4l6 6m0-6l-6 6',
   enviar: 'M4 12l16-8-6 16-3-7z',

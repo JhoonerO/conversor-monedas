@@ -5,7 +5,7 @@ import { PantallaControl } from './componentes/PantallaControl.jsx'
 import { PantallaTouchpad } from './componentes/PantallaTouchpad.jsx'
 import { PantallaTeclado } from './componentes/PantallaTeclado.jsx'
 import { PantallaAjustes } from './componentes/PantallaAjustes.jsx'
-import { iniciar, useControl, perfilActual } from './servicios/control.js'
+import { iniciar, useControl, cambiarDispositivo, dispositivoActivo, DISPOSITIVOS } from './servicios/control.js'
 
 const PESTANAS = [
   { id: 'control', texto: 'Control', icono: 'control', Pantalla: PantallaControl },
@@ -14,10 +14,8 @@ const PESTANAS = [
   { id: 'ajustes', texto: 'Ajustes', icono: 'engranaje', Pantalla: PantallaAjustes },
 ]
 
-function Encabezado({ irAAjustes }) {
-  const { googleTv, aviso } = useControl()
-  const perfil = perfilActual()
-  const conectado = googleTv === 'conectado'
+function Encabezado() {
+  const { aviso, dispositivo } = useControl()
 
   return (
     <header className="encabezado vidrio-panel">
@@ -30,16 +28,21 @@ function Encabezado({ irAAjustes }) {
           <small>Tu Smart TV en la mano</small>
         </div>
       </div>
-      <button type="button" className="dispositivo" onClick={irAAjustes}>
-        <Icono nombre="tv" tam={22} />
-        <span>
-          <strong>Kalley TV</strong>
-          <small>
-            <i className={`luz ${perfil ? 'verde' : 'gris'}`} /> IR
-            <i className={`luz ${conectado ? 'verde' : googleTv === 'conectando' ? 'amarilla' : 'gris'}`} /> WiFi
-          </small>
-        </span>
-      </button>
+      <div className="selector" role="tablist" aria-label="Aparato a controlar">
+        {DISPOSITIVOS.map((d) => (
+          <button
+            key={d.id}
+            type="button"
+            role="tab"
+            aria-selected={dispositivo === d.id}
+            className={`selector-opcion ${d.tema} ${dispositivo === d.id ? 'activo' : ''}`}
+            onClick={() => cambiarDispositivo(d.id)}
+          >
+            <Icono nombre={d.id === 'tv' ? 'tv' : 'deco'} tam={20} />
+            {d.corto}
+          </button>
+        ))}
+      </div>
       {aviso && (
         <div key={aviso.id} className={`aviso aviso-${aviso.tipo}`} role="status">
           {aviso.texto}
@@ -50,18 +53,24 @@ function Encabezado({ irAAjustes }) {
 }
 
 export default function App() {
-  const [pestana, setPestana] = useState(() => (perfilActual() ? 'control' : 'ajustes'))
+  const [pestana, setPestana] = useState('control')
+  const { dispositivo } = useControl()
 
   useEffect(() => {
     iniciar()
   }, [])
+
+  // El tema va en <html> para que también lo usen las ventanas que suben
+  useEffect(() => {
+    document.documentElement.dataset.tema = dispositivoActivo().tema
+  }, [dispositivo])
 
   const { Pantalla } = PESTANAS.find((p) => p.id === pestana)
 
   return (
     <div className="app">
       <Fondo />
-      <Encabezado irAAjustes={() => setPestana('ajustes')} />
+      <Encabezado />
       <main className="contenido">
         <Pantalla key={pestana} />
       </main>

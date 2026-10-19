@@ -1,19 +1,28 @@
-// El "cerebro" del control: guarda la configuración y decide si cada botón
-// sale por infrarrojo (al TV Kalley) o por WiFi (al Google TV).
+// El "cerebro" del control: guarda la configuración y decide a qué aparato
+// y por dónde (infrarrojo o WiFi) sale cada botón.
 import { useSyncExternalStore } from 'react'
 import datosPerfiles from '../ir/perfiles.json'
 import { codificar } from '../ir/protocolos.js'
 import { TECLAS, ALTERNATIVAS_IR, APPS } from '../ir/teclas.js'
 import { Infrarrojo, GoogleTv, esApp, vibrar } from './nativo.js'
 
-export const PERFILES = datosPerfiles.perfiles
 const PROTOCOLOS = datosPerfiles.protocolos
+const perfil = (id) => datosPerfiles.perfiles.find((p) => p.id === id)
 
-const CLAVE_GUARDADO = 'control-aero:ajustes'
+// Los dos controles que funcionaron con tus aparatos
+export const DISPOSITIVOS = [
+  { id: 'tv', nombre: 'Televisor', corto: 'TV', tema: 'verde', perfil: perfil('hisense-55k3201guwus') },
+  { id: 'caja', nombre: 'Decodificador', corto: 'Deco', tema: 'azul', perfil: perfil('android-tv-mxq') },
+]
+
+// Estas teclas siempre van al TV aunque estés usando el decodificador
+const TECLAS_DEL_TV = ['volUp', 'volDown', 'mute']
+
+const CLAVE_GUARDADO = 'control-aero:ajustes-v2'
 const AJUSTES_INICIALES = {
-  perfilId: null,
+  dispositivo: 'caja',
+  volumenAlTv: true,
   ipGoogleTv: '',
-  rutaNavegacion: 'auto', // 'auto' | 'ir' | 'wifi'
   vibracion: true,
 }
 
@@ -55,6 +64,14 @@ export function useControl() {
 
 export const cambiarAjuste = (clave, valor) => actualizar({ [clave]: valor })
 
+export const dispositivoActivo = () => DISPOSITIVOS.find((d) => d.id === estado.dispositivo) ?? DISPOSITIVOS[0]
+
+export function cambiarDispositivo(id) {
+  if (id === estado.dispositivo) return
+  if (estado.vibracion) vibrar()
+  actualizar({ dispositivo: id })
+}
+
 let temporizadorAviso
 export function avisar(texto, tipo = 'info') {
   clearTimeout(temporizadorAviso)
@@ -62,44 +79,23 @@ export function avisar(texto, tipo = 'info') {
   temporizadorAviso = setTimeout(() => actualizar({ aviso: null }), 2600)
 }
 
-export const perfilActual = () => PERFILES.find((p) => p.id === estado.perfilId) ?? null
-
 // ---------- Infrarrojo ----------
 
-function codigoIr(perfil, id) {
-  if (!perfil) return null
+function codigoIr(dispositivo, id) {
   for (const clave of [id, ...(ALTERNATIVAS_IR[id] ?? [])]) {
-    if (perfil.teclas[clave]) return perfil.teclas[clave]
+    if (dispositivo.perfil.teclas[clave]) return dispositivo.perfil.teclas[clave]
   }
   return null
 }
 
-async function enviarIr(perfil, id) {
-  const codigo = codigoIr(perfil, id)
-  if (!codigo) return false
-  const [protocolo, direccion, comando] = codigo
+async function enviarIr(dispositivo, id) {
+  const [protocolo, direccion, comando] = codigoIr(dispositivo, id)
   const { frecuencia, patron } = codificar(PROTOCOLOS[protocolo], direccion, comando)
-  if (!esApp) {
-    avisar(`Demo · infrarrojo: ${TECLAS[id]?.nombre ?? id}`)
-    return true
-  }
+  if (!esApp) return avisar(`Demo · ${dispositivo.corto}: ${TECLAS[id]?.nombre ?? id}`)
   await Infrarrojo.transmitir({ frecuencia, patron })
-  return true
 }
 
-export const tieneTeclaIr = (id) => Boolean(codigoIr(perfilActual(), id))
-
-// Usado por el asistente "Buscar mi control"
-export async function probarPerfil(perfil, id) {
-  vibrar()
-  try {
-    await enviarIr(perfil, id)
-  } catch (e) {
-    avisar(e.message, 'error')
-  }
-}
-
-// ---------- Google TV por WiFi ----------
+// ---------- Decodificador por WiFi (opcional: teclado y apps) ----------
 
 let colaWifi = Promise.resolve()
 function enviarWifi(orden) {
@@ -107,19 +103,19 @@ function enviarWifi(orden) {
   colaWifi = colaWifi.then(() => GoogleTv.enviar(orden)).catch((e) => {
     if (e.code === 'SIN_DESCONECTAR') return avisar(e.message, 'error')
     actualizar({ googleTv: 'desconectado' })
-    avisar(`Se perdió la conexión con el Google TV (${e.message})`, 'error')
+    avisar(`Se perdió la conexión WiFi con el decodificador (${e.message})`, 'error')
   })
   return colaWifi
 }
 
 export async function conectarGoogleTv(ip = estado.ipGoogleTv, silencioso = false) {
   ip = ip.trim()
-  if (!ip) return avisar('Escribe la IP del Google TV', 'error')
+  if (!ip) return avisar('Escribe la IP del decodificador', 'error')
   actualizar({ ipGoogleTv: ip, googleTv: 'conectando' })
   try {
     await GoogleTv.conectar({ host: ip, puerto: 5555 })
     actualizar({ googleTv: 'conectado' })
-    if (!silencioso) avisar('¡Google TV conectado! 🎉', 'exito')
+    if (!silencioso) avisar('¡Decodificador conectado por WiFi! 🎉', 'exito')
   } catch (e) {
     actualizar({ googleTv: 'desconectado' })
     if (!silencioso) avisar(e.message || 'No se pudo conectar', 'error')
@@ -133,51 +129,48 @@ export async function desconectarGoogleTv() {
 
 // ---------- Botones ----------
 
-function ruta(id) {
-  const tecla = TECLAS[id]
-  const wifi = estado.googleTv === 'conectado'
-  const ir = estado.irDisponible !== false && tieneTeclaIr(id)
-  if (tecla.soloWifi) return wifi ? 'wifi' : null
-  const preferida = estado.rutaNavegacion === 'auto' ? (tecla.destino === 'tv' ? 'ir' : 'wifi') : estado.rutaNavegacion
-  if (preferida === 'ir') return ir ? 'ir' : wifi ? 'wifi' : null
-  return wifi ? 'wifi' : ir ? 'ir' : null
-}
-
 export async function presionar(id) {
   if (estado.vibracion) vibrar()
-  const destino = ruta(id)
-  if (destino === 'wifi') return enviarWifi({ tipo: 'tecla', codigo: TECLAS[id].adb })
-  if (destino === 'ir') {
-    return enviarIr(perfilActual(), id).catch((e) => avisar(e.message, 'error'))
+  const tecla = TECLAS[id]
+  const wifi = estado.googleTv === 'conectado'
+
+  if (tecla.soloWifi) {
+    if (wifi) return enviarWifi({ tipo: 'tecla', codigo: tecla.adb })
+    return avisar('Esto necesita el decodificador conectado por WiFi (Ajustes)', 'error')
   }
-  if (TECLAS[id].soloWifi || !perfilActual()) avisar(explicarSinRuta(id), 'error')
-  else avisar(`Tu control no trae el botón "${TECLAS[id].nombre}". Conecta el Google TV en Ajustes.`, 'error')
+
+  const destino =
+    estado.volumenAlTv && TECLAS_DEL_TV.includes(id) ? DISPOSITIVOS[0] : dispositivoActivo()
+
+  if (estado.irDisponible !== false && codigoIr(destino, id)) {
+    return enviarIr(destino, id).catch((e) => avisar(e.message, 'error'))
+  }
+  // El control infrarrojo no trae ese botón: probamos por WiFi si hay conexión
+  if (destino.id === 'caja' && wifi && tecla.adb) return enviarWifi({ tipo: 'tecla', codigo: tecla.adb })
+  if (estado.irDisponible === false) return avisar('Este celular no tiene infrarrojo', 'error')
+  avisar(`El control del ${destino.nombre.toLowerCase()} no trae "${tecla.nombre}"`, 'error')
 }
 
-function explicarSinRuta(id) {
-  if (TECLAS[id].soloWifi) return 'Esto necesita el Google TV conectado por WiFi (Ajustes)'
-  if (estado.irDisponible === false) return 'Este celular no tiene infrarrojo. Conecta el Google TV en Ajustes.'
-  return 'Primero busca tu control en Ajustes → "Buscar mi control"'
-}
+export const tieneTecla = (id) => Boolean(codigoIr(dispositivoActivo(), id))
 
 export function abrirApp(appId) {
   if (estado.vibracion) vibrar()
   const app = APPS.find((a) => a.id === appId)
-  if (estado.googleTv === 'conectado') {
+  const activo = dispositivoActivo()
+  if (activo.id === 'caja' && estado.googleTv === 'conectado') {
     avisar(`Abriendo ${app.nombre}…`)
     return enviarWifi({ tipo: 'app', paquete: app.paquete })
   }
-  if (tieneTeclaIr(appId)) return enviarIr(perfilActual(), appId)
-  avisar('Para abrir apps conecta el Google TV en Ajustes', 'error')
+  if (codigoIr(activo, appId)) return enviarIr(activo, appId).catch((e) => avisar(e.message, 'error'))
+  if (activo.id === 'caja') return avisar('Para abrir apps en el decodificador conéctalo por WiFi (Ajustes)', 'error')
+  avisar(`El control del TV no trae botón de ${app.nombre}`, 'error')
 }
 
 export function escribir(texto) {
   if (!texto) return
-  if (estado.googleTv !== 'conectado') return avisar('El teclado necesita el Google TV conectado', 'error')
+  if (estado.googleTv !== 'conectado') return avisar('El teclado necesita el decodificador por WiFi', 'error')
   return enviarWifi({ tipo: 'texto', texto })
 }
-
-export const hayWifi = () => estado.googleTv === 'conectado'
 
 // ---------- Arranque ----------
 
